@@ -1,0 +1,23 @@
+[Unit]
+Description=API Checker dashboard
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=apichecker
+Group=apichecker
+WorkingDirectory=/opt/apichecker
+EnvironmentFile=/opt/apichecker/.env
+ExecStart=/opt/apichecker/.venv/bin/python -m app
+Restart=on-failure
+RestartSec=5
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+ProtectSystem=strict
+ReadWritePaths=/opt/apichecker/data
+
+[Install]
+WantedBy=multi-user.target

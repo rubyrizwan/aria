@@ -1,0 +1,33 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - run: python -m pip install -e ".[dev]"
+      - run: python scripts/validate-release
+      - run: pytest -q
+
+      - name: Require a version bump on push
+        if: github.event_name == 'push' && github.event.before != '0000000000000000000000000000000000000000'
+        shell: bash
+        run: |
+          current="$(sed -n 's/^__version__ = "\(.*\)"/\1/p' app/version.py)"
+          previous="$(git show "${{ github.event.before }}:app/version.py" 2>/dev/null | sed -n 's/^__version__ = "\(.*\)"/\1/p' || true)"
+          if [ -n "$previous" ] && [ "$current" = "$previous" ]; then
+            echo "Version $current was not bumped."
+            exit 1
+          fi

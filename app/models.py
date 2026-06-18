@@ -1,0 +1,117 @@
+from __future__ import annotations
+
+from datetime import datetime, timezone
+import json
+
+from sqlalchemy import Boolean, DateTime, Float, ForeignKey, Integer, String, Text
+from sqlalchemy.orm import Mapped, mapped_column, relationship
+
+from app.database import Base
+
+
+def utcnow() -> datetime:
+    return datetime.now(timezone.utc)
+
+
+class Account(Base):
+    __tablename__ = "accounts"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    name: Mapped[str] = mapped_column(String(120), unique=True, index=True)
+    endpoint_url: Mapped[str] = mapped_column(String(2048))
+    method: Mapped[str] = mapped_column(String(8), default="GET")
+    auth_type: Mapped[str] = mapped_column(String(20), default="bearer")
+    auth_header: Mapped[str] = mapped_column(String(100), default="Authorization")
+    encrypted_api_key: Mapped[str] = mapped_column(Text)
+    extra_headers: Mapped[str] = mapped_column(Text, default="{}")
+    request_body: Mapped[str | None] = mapped_column(Text, nullable=True)
+    expected_status: Mapped[int] = mapped_column(Integer, default=200)
+    timeout_seconds: Mapped[int] = mapped_column(Integer, default=10)
+    interval_minutes: Mapped[int] = mapped_column(Integer, default=5)
+    enabled: Mapped[bool] = mapped_column(Boolean, default=True, index=True)
+    provider_type: Mapped[str] = mapped_column(String(20), default="unknown")
+    models_json: Mapped[str] = mapped_column(Text, default="[]")
+    models_endpoint: Mapped[str | None] = mapped_column(String(2048), nullable=True)
+    last_status: Mapped[str] = mapped_column(String(20), default="pending")
+    last_checked_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    next_check_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True, index=True
+    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utcnow, onupdate=utcnow
+    )
+
+    checks: Mapped[list["CheckResult"]] = relationship(
+        back_populates="account", cascade="all, delete-orphan"
+    )
+
+    @property
+    def model_details(self) -> list[dict]:
+        try:
+            value = json.loads(self.models_json or "[]")
+        except json.JSONDecodeError:
+            return []
+        if not isinstance(value, list):
+            return []
+        details = []
+        for item in value:
+            if isinstance(item, str):
+                details.append(
+                    {
+                        "id": item,
+                        "display_name": item,
+                        "owned_by": "",
+                        "created": None,
+                        "capabilities": {},
+                    }
+                )
+            elif isinstance(item, dict) and item.get("id"):
+                details.append(
+                    {
+                        "id": str(item["id"]),
+                        "display_name": str(item.get("display_name") or item["id"]),
+                        "owned_by": str(item.get("owned_by") or ""),
+                        "created": item.get("created"),
+                        "capabilities": item.get("capabilities")
+                        if isinstance(item.get("capabilities"), dict)
+                        else {},
+                    }
+                )
+        return sorted(details, key=lambda model: model["id"].casefold())
+
+    @property
+    def models(self) -> list[str]:
+        return [model["id"] for model in self.model_details]
+
+
+class CheckResult(Base):
+    __tablename__ = "check_results"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    account_id: Mapped[int] = mapped_column(
+        ForeignKey("accounts.id", ondelete="CASCADE"), index=True
+    )
+    checked_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utcnow, index=True
+    )
+    status: Mapped[str] = mapped_column(String(20), index=True)
+    http_status: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    latency_ms: Mapped[float | None] = mapped_column(Float, nullable=True)
+    error_message: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    provider_type: Mapped[str] = mapped_column(String(20), default="unknown")
+    model_count: Mapped[int] = mapped_column(Integer, default=0)
+
+    account: Mapped[Account] = relationship(back_populates="checks")
+
+
+class AppSetting(Base):
+    __tablename__ = "app_settings"
+
+    key: Mapped[str] = mapped_column(String(100), primary_key=True)
+    value: Mapped[str] = mapped_column(Text)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utcnow, onupdate=utcnow
+    )

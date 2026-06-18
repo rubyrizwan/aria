@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+{% block title %}{{ account.name }} · API Checker{% endblock %}
+{% block content %}
+<header class="page-header">
+  <div>
+    <a class="back-link" href="/accounts"><i data-lucide="arrow-left"></i>Providers</a>
+    <div class="title-row"><h1>{{ account.name }}</h1>{% include "_status.html" %}</div>
+    <p class="subtle endpoint">{{ account.endpoint_url }}</p>
+  </div>
+  <div class="header-actions"><form method="post" action="/accounts/{{ account.id }}/check"><button class="button primary" data-loading-label="Checking..."><i data-lucide="refresh-cw"></i>Check now</button></form><a class="button secondary" href="/accounts/{{ account.id }}/edit"><i data-lucide="pencil"></i>Edit</a></div>
+</header>
+<section class="stat-grid">
+  <article class="stat"><div class="stat-icon neutral"><i data-lucide="plug-zap"></i></div><div><span>Compatibility</span><strong class="stat-text">{{ account.provider_type|capitalize }}</strong></div></article>
+  <article class="stat"><div class="stat-icon info"><i data-lucide="boxes"></i></div><div><span>Available models</span><strong>{{ account.models|length }}</strong></div></article>
+  <article class="stat"><div class="stat-icon neutral"><i data-lucide="timer"></i></div><div><span>Last latency</span><strong>{{ latest_check.latency_ms|round|int ~ ' ms' if latest_check and latest_check.latency_ms is not none else '—' }}</strong></div></article>
+  <article class="stat"><div class="stat-icon good"><i data-lucide="calendar-days"></i></div><div><span>24h success</span><strong>{{ uptime_24h ~ '%' if uptime_24h is not none else '—' }}</strong></div></article>
+</section>
+{% if latest_check and latest_check.error_message %}
+<div class="alert error"><i data-lucide="triangle-alert"></i><div><strong>Latest error</strong><p>{{ latest_check.error_message }}</p></div></div>
+{% endif %}
+<section class="section">
+  <div class="section-heading">
+    <div><h2>Available models</h2><p>{{ account.models_endpoint or 'Models endpoint has not been detected.' }}</p></div>
+    {% if account.models %}<span class="model-count">{{ account.models|length }} models</span>{% endif %}
+  </div>
+  {% if account.models %}
+  <form class="model-search" method="get">
+    <input type="hidden" name="page" value="{{ pager.page }}">
+    <label class="search"><i data-lucide="search"></i><input name="model_q" value="{{ model_query }}" placeholder="Search model name"></label>
+    <button class="button secondary" type="submit" data-loading-label="Searching...">Search</button>
+    {% if model_query %}<a class="button secondary" href="/accounts/{{ account.id }}?page={{ pager.page }}">Clear</a>{% endif %}
+  </form>
+  {% endif %}
+  {% if models %}
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>#</th><th>Model</th><th>Display name</th><th>Owner</th><th>Capabilities</th></tr></thead>
+      <tbody>
+      {% for model in models %}
+        <tr>
+          <td class="row-number">{{ model_pager.offset + loop.index }}</td>
+          <td><code class="model-name">{{ model.id }}</code></td>
+          <td>{{ model.display_name }}</td>
+          <td>{{ model.owned_by or '—' }}</td>
+          <td>
+            <div class="capabilities">
+              {% if model.capabilities.vision %}<span class="capability" title="Vision support · {{ model.capabilities.vision|capitalize }}"><i data-lucide="eye"></i><span>Vision</span><small>{{ model.capabilities.vision|capitalize }}</small></span>{% endif %}
+              {% if model.capabilities.reasoning %}<span class="capability" title="Reasoning support · {{ model.capabilities.reasoning|capitalize }}"><i data-lucide="brain-circuit"></i><span>Reasoning</span><small>{{ model.capabilities.reasoning|capitalize }}</small></span>{% endif %}
+              {% if model.capabilities.audio %}<span class="capability" title="Audio support · {{ model.capabilities.audio|capitalize }}"><i data-lucide="audio-lines"></i><span>Audio</span><small>{{ model.capabilities.audio|capitalize }}</small></span>{% endif %}
+              {% if model.capabilities.tools %}<span class="capability" title="Tool support · {{ model.capabilities.tools|capitalize }}"><i data-lucide="wrench"></i><span>Tools</span><small>{{ model.capabilities.tools|capitalize }}</small></span>{% endif %}
+              {% if not model.capabilities %}<span class="capability-empty">Not reported</span>{% endif %}
+            </div>
+          </td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% with pager=model_pager %}{% include "_pagination.html" %}{% endwith %}
+  {% else %}
+  <div class="empty">{{ 'No models match this search.' if model_query else 'Run a check to discover models from this provider.' }}</div>
+  {% endif %}
+</section>
+<section class="section">
+  <div class="section-heading"><div><h2>Check history</h2><p>Compatibility checks, 30 rows per page.</p></div></div>
+  <div class="table-wrap"><table><thead><tr><th>Time</th><th>Status</th><th>Type</th><th>Models</th><th>HTTP</th><th>Latency</th><th>Result</th></tr></thead><tbody>
+  {% for check in checks %}<tr><td>{{ check.checked_at|datetime }}</td><td><span class="badge {{ check.status }}">{{ check.status|capitalize }}</span></td><td>{{ check.provider_type|capitalize }}</td><td>{{ check.model_count }}</td><td>{{ check.http_status or '—' }}</td><td>{{ check.latency_ms|round|int ~ ' ms' if check.latency_ms is not none else '—' }}</td><td>{{ check.error_message or 'Model list detected successfully' }}</td></tr>
+  {% else %}<tr><td colspan="7"><div class="empty">No checks recorded yet.</div></td></tr>{% endfor %}
+  </tbody></table></div>
+  {% include "_pagination.html" %}
+</section>
+<section class="danger-zone">
+  <div><h2>Delete provider</h2><p>Deletes the provider and all stored check history.</p></div>
+  <form method="post" action="/accounts/{{ account.id }}/delete" onsubmit="return confirm('Delete this provider and its history?')"><input name="confirmation" required placeholder="Type {{ account.name }}"><button class="button danger" data-loading-label="Deleting..."><i data-lucide="trash-2"></i>Delete</button></form>
+</section>
+{% endblock %}

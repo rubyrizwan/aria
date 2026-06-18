@@ -1,0 +1,22 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT_DIR="$(git rev-parse --show-toplevel)"
+cd "$ROOT_DIR"
+
+.venv/bin/python scripts/validate-release
+.venv/bin/pytest -q
+
+while read -r local_ref local_sha remote_ref remote_sha; do
+    [[ "$local_sha" == "0000000000000000000000000000000000000000" ]] && continue
+    [[ "$remote_sha" == "0000000000000000000000000000000000000000" ]] && continue
+
+    local_version="$(git show "$local_sha:app/version.py" 2>/dev/null | sed -n 's/^__version__ = "\(.*\)"/\1/p')"
+    remote_version="$(git show "$remote_sha:app/version.py" 2>/dev/null | sed -n 's/^__version__ = "\(.*\)"/\1/p' || true)"
+
+    if [[ -n "$remote_version" && "$local_version" == "$remote_version" ]]; then
+        echo "Push rejected: version $local_version already exists on $remote_ref." >&2
+        echo "Run ./scripts/prepare-release patch, update the changelog, and commit." >&2
+        exit 1
+    fi
+done

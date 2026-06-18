@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% block title %}{{ 'Edit ' ~ account.name if account else 'Add provider' }} · API Checker{% endblock %}
+{% block content %}
+<header class="page-header compact">
+  <div>
+    <a class="back-link" href="{{ '/accounts/' ~ account.id if account else '/accounts' }}"><i data-lucide="arrow-left"></i>Providers</a>
+    <h1>{{ 'Edit provider' if account else 'Add API provider' }}</h1>
+    <p class="subtle">API Checker will detect OpenAI or Anthropic compatibility from the models endpoint.</p>
+  </div>
+</header>
+{% if errors %}
+<div class="alert error"><i data-lucide="circle-alert"></i><div><strong>Could not save provider</strong>{% for error in errors %}<p>{{ error }}</p>{% endfor %}</div></div>
+{% endif %}
+<form class="form-layout" method="post">
+  <section class="form-section">
+    <div class="form-section-title"><h2>Provider</h2><p>Only the base URL and optional API key are needed.</p></div>
+    <div class="fields">
+      <label class="field full"><span>Provider name</span><input required maxlength="120" name="name" value="{{ values.name or '' }}" placeholder="Production gateway"></label>
+      <label class="field full"><span>Base URL or endpoint</span><input required type="url" name="endpoint_url" value="{{ values.endpoint_url or '' }}" placeholder="https://api.example.com or https://api.example.com/v1"></label>
+      <label class="field full">
+        <span>API key {{ '(leave blank to keep current)' if account else '(optional)' }}</span>
+        <div class="secret-input"><input type="password" name="api_key" autocomplete="new-password" placeholder="{{ 'Unchanged' if account else 'Leave blank for public endpoints' }}"><button type="button" class="icon-button reveal-secret" title="Show or hide API key"><i data-lucide="eye"></i></button></div>
+      </label>
+      {% if account %}<label class="check-field full"><input type="checkbox" name="remove_api_key"><span>Remove the stored API key and check this provider without authentication.</span></label>{% endif %}
+      <label class="field"><span>Request timeout</span><input required type="number" min="1" max="60" name="timeout_seconds" value="{{ values.timeout_seconds }}"><small>Seconds</small></label>
+    </div>
+  </section>
+  <section class="form-section">
+    <div class="form-section-title"><h2>Schedule</h2><p>Refresh provider compatibility and model availability.</p></div>
+    <div class="fields">
+      <label class="field"><span>Check interval</span><select name="interval_minutes">{% for interval in [1,5,15,30,60] %}<option value="{{ interval }}" {{ 'selected' if values.interval_minutes|int == interval }}>{{ interval }} minute{{ 's' if interval > 1 }}</option>{% endfor %}</select></label>
+      <label class="toggle-field"><input type="checkbox" name="enabled" {{ 'checked' if values.enabled }}><span class="toggle"></span><span><strong>Monitoring enabled</strong><small>Detect compatibility and refresh models automatically.</small></span></label>
+    </div>
+  </section>
+  <div class="form-actions"><a class="button secondary" href="{{ '/accounts/' ~ account.id if account else '/accounts' }}">Cancel</a><button class="button primary" type="submit" data-loading-label="Saving..."><i data-lucide="save"></i>Save provider</button></div>
+</form>
+{% endblock %}

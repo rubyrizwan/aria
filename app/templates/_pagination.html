@@ -1,0 +1,10 @@
+{% if pager is defined and pager.total_pages > 1 %}
+<nav class="pagination" aria-label="Table pagination">
+  <span class="pagination-summary">{{ pager.total }} items · Page {{ pager.page }} of {{ pager.total_pages }}</span>
+  <div class="pagination-actions">
+    {% if pager.previous_url %}<a class="page-button" href="{{ pager.previous_url }}" aria-label="Previous page"><i data-lucide="chevron-left"></i></a>{% else %}<span class="page-button disabled"><i data-lucide="chevron-left"></i></span>{% endif %}
+    {% for number, url in pager.pages %}<a class="page-number {{ 'active' if number == pager.page }}" href="{{ url }}">{{ number }}</a>{% endfor %}
+    {% if pager.next_url %}<a class="page-button" href="{{ pager.next_url }}" aria-label="Next page"><i data-lucide="chevron-right"></i></a>{% else %}<span class="page-button disabled"><i data-lucide="chevron-right"></i></span>{% endif %}
+  </div>
+</nav>
+{% endif %}

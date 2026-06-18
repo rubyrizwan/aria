@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block title %}Settings · API Checker{% endblock %}
+{% block content %}
+<header class="page-header compact">
+  <div><p class="eyebrow">Application</p><h1>Settings</h1><p class="subtle">Global behavior for this API Checker instance.</p></div>
+</header>
+{% if saved %}
+<div class="alert success"><i data-lucide="circle-check"></i><div><strong>Settings saved</strong><p>The scheduler will use the updated configuration on its next cycle.</p></div></div>
+{% endif %}
+<form class="settings-form" method="post">
+  <section class="settings-section">
+    <div class="settings-copy">
+      <h2>Automatic monitoring</h2>
+      <p>Run scheduled provider checks using each provider's configured interval.</p>
+    </div>
+    <label class="settings-toggle">
+      <input type="checkbox" name="auto_monitoring" {{ 'checked' if auto_monitoring }}>
+      <span class="toggle" aria-hidden="true"></span>
+      <span><strong>{{ 'Enabled' if auto_monitoring else 'Disabled' }}</strong><small>Manual Check now actions remain available.</small></span>
+    </label>
+  </section>
+  <div class="form-actions"><button class="button primary" type="submit" data-loading-label="Saving..."><i data-lucide="save"></i>Save settings</button></div>
+</form>
+{% endblock %}

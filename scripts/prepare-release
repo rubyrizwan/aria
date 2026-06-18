@@ -1,0 +1,104 @@
+#!/usr/bin/env python3
+from __future__ import annotations
+
+import re
+import subprocess
+import sys
+from datetime import date
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parent.parent
+PYPROJECT = ROOT / "pyproject.toml"
+VERSION_FILE = ROOT / "app" / "version.py"
+CHANGELOG = ROOT / "CHANGELOG.md"
+README = ROOT / "README.md"
+
+
+def fail(message: str) -> None:
+    print(f"Error: {message}", file=sys.stderr)
+    raise SystemExit(1)
+
+
+def current_version() -> tuple[int, int, int]:
+    match = re.search(
+        r'^__version__ = "(\d+)\.(\d+)\.(\d+)"$',
+        VERSION_FILE.read_text(),
+        re.MULTILINE,
+    )
+    if not match:
+        fail("Unable to read the current version.")
+    return tuple(int(part) for part in match.groups())
+
+
+def next_version(kind: str) -> str:
+    major, minor, patch = current_version()
+    if kind == "major":
+        return f"{major + 1}.0.0"
+    if kind == "minor":
+        return f"{major}.{minor + 1}.0"
+    return f"{major}.{minor}.{patch + 1}"
+
+
+def replace(pattern: str, replacement: str, path: Path) -> None:
+    content = path.read_text()
+    updated, count = re.subn(pattern, replacement, content, count=1, flags=re.MULTILINE)
+    if count != 1:
+        fail(f"Unable to update {path.relative_to(ROOT)}.")
+    path.write_text(updated)
+
+
+def run(command: list[str]) -> None:
+    subprocess.run(command, cwd=ROOT, check=True)
+
+
+def main() -> None:
+    if len(sys.argv) != 2 or sys.argv[1] not in {"patch", "minor", "major"}:
+        fail("Usage: ./scripts/prepare-release {patch|minor|major}")
+
+    version = next_version(sys.argv[1])
+    release_date = date.today().isoformat()
+    replace(
+        r'^__version__ = "[^"]+"$',
+        f'__version__ = "{version}"',
+        VERSION_FILE,
+    )
+    replace(
+        r'^__release_date__ = "[^"]+"$',
+        f'__release_date__ = "{release_date}"',
+        VERSION_FILE,
+    )
+    replace(
+        r'^version = "[^"]+"$',
+        f'version = "{version}"',
+        PYPROJECT,
+    )
+
+    changelog = CHANGELOG.read_text()
+    marker = "All notable changes to API Checker are documented here.\n"
+    entry = (
+        f"\n## [{version}] - {release_date}\n\n"
+        "### Changed\n\n"
+        "- Describe this release before committing.\n"
+    )
+    if marker not in changelog:
+        fail("Changelog insertion marker is missing.")
+    CHANGELOG.write_text(changelog.replace(marker, marker + entry, 1))
+
+    readme = README.read_text()
+    history_marker = "<!-- version-history -->"
+    history_entry = (
+        f"{history_marker}\n"
+        f"| `{version}` | {release_date} | See CHANGELOG.md; update this summary before committing |"
+    )
+    if history_marker not in readme:
+        fail("README version-history marker is missing.")
+    README.write_text(readme.replace(history_marker, history_entry, 1))
+
+    run([str(ROOT / ".venv/bin/python"), str(ROOT / "scripts/validate-release")])
+    run([str(ROOT / ".venv/bin/pytest"), "-q"])
+    print(f"Release {version} prepared.")
+    print("Update CHANGELOG.md, review changes, commit, then push.")
+
+
+if __name__ == "__main__":
+    main()

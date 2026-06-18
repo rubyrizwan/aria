@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block title %}About · API Checker{% endblock %}
+{% block content %}
+<header class="page-header compact">
+  <div><p class="eyebrow">Information</p><h1>About API Checker</h1><p class="subtle">A lightweight dashboard for compatible AI API providers.</p></div>
+</header>
+<section class="about-layout">
+  <div class="about-main">
+    <section class="about-section">
+      <h2>Application</h2>
+      <dl class="about-meta">
+        <div><dt>Name</dt><dd>API Checker</dd></div>
+        <div><dt>Version</dt><dd>{{ app_version }}</dd></div>
+        <div><dt>Released</dt><dd>{{ release_date }}</dd></div>
+        <div><dt>Author</dt><dd>Ruby Rizwan</dd></div>
+        <div><dt>Email</dt><dd><a class="text-link" href="mailto:rzwan182@gmail.com">rzwan182@gmail.com</a></dd></div>
+      </dl>
+    </section>
+    <section class="about-section">
+      <h2>Usage</h2>
+      <ol class="usage-list">
+        <li>Add a provider name, base URL, and optional API key.</li>
+        <li>API Checker detects OpenAI or Anthropic compatibility through the models endpoint.</li>
+        <li>Use Check now for an immediate check or enable automatic monitoring.</li>
+        <li>Review available models, inferred capabilities, latency, and check history.</li>
+      </ol>
+    </section>
+  </div>
+  <aside class="support-panel">
+    <i data-lucide="heart-handshake"></i>
+    <h2>Support development</h2>
+    <p>Donations help maintain and improve API Checker.</p>
+    <a class="button primary" href="https://saweria.co/rubydevara" target="_blank" rel="noopener noreferrer"><i data-lucide="external-link"></i>Donate via Saweria</a>
+  </aside>
+</section>
+{% endblock %}

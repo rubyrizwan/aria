@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+{% block title %}Accounts · API Checker{% endblock %}
+{% block content %}
+<header class="page-header">
+  <div><p class="eyebrow">Configuration</p><h1>API providers</h1><p class="subtle">OpenAI and Anthropic compatible endpoints monitored by this instance.</p></div>
+  <a class="button primary" href="/accounts/new"><i data-lucide="plus"></i>Add provider</a>
+</header>
+<form class="filters" method="get">
+  <label class="search"><i data-lucide="search"></i><input name="q" value="{{ query }}" placeholder="Search accounts"></label>
+  <select name="status" onchange="this.form.submit()" aria-label="Filter status">
+    <option value="all" {{ 'selected' if status == 'all' }}>All statuses</option>
+    <option value="healthy" {{ 'selected' if status == 'healthy' }}>Healthy</option>
+    <option value="down" {{ 'selected' if status == 'down' }}>Down</option>
+    <option value="pending" {{ 'selected' if status == 'pending' }}>Pending</option>
+    <option value="disabled" {{ 'selected' if status == 'disabled' }}>Disabled</option>
+  </select>
+  <button class="button secondary" type="submit" data-loading-label="Filtering...">Filter</button>
+</form>
+<section class="section">
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Provider</th><th>Status</th><th>Enabled</th><th>Compatibility</th><th>Models</th><th>Endpoint</th><th>Last check</th><th>Actions</th></tr></thead>
+      <tbody>
+      {% for account in accounts %}
+        <tr>
+          <td><a class="name-link" href="/accounts/{{ account.id }}">{{ account.name }}</a></td>
+          <td>{% include "_status.html" %}</td>
+          <td>
+            <form class="inline-toggle-form" method="post" action="/accounts/{{ account.id }}/toggle">
+              <label class="table-check" title="{{ 'Disable monitoring' if account.enabled else 'Enable monitoring' }}">
+                <input type="checkbox" {{ 'checked' if account.enabled }} onchange="this.form.requestSubmit()">
+                <span aria-hidden="true"></span>
+              </label>
+            </form>
+          </td>
+          <td><span class="provider-type {{ account.provider_type }}">{{ account.provider_type|capitalize }}</span></td>
+          <td>{{ account.models|length }}</td>
+          <td><span class="endpoint">{{ account.endpoint_url }}</span></td>
+          <td>{{ account.last_checked_at|datetime }}</td>
+          <td class="actions">
+            <form method="post" action="/accounts/{{ account.id }}/check"><button class="icon-button" title="Check now"><i data-lucide="refresh-cw"></i></button></form>
+            <a class="icon-button" title="Edit" href="/accounts/{{ account.id }}/edit"><i data-lucide="pencil"></i></a>
+            <form method="post" action="/accounts/{{ account.id }}/delete" onsubmit="return confirm('Delete this provider and all of its check history?')"><input type="hidden" name="confirmation" value="{{ account.name }}"><button class="icon-button delete-action" title="Delete"><i data-lucide="trash-2"></i></button></form>
+          </td>
+        </tr>
+      {% else %}
+        <tr><td colspan="8"><div class="empty">No providers match this filter.</div></td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% include "_pagination.html" %}
+</section>
+{% endblock %}

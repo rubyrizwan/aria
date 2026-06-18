@@ -1,0 +1,9 @@
+{% if not account.enabled %}
+  <span class="badge disabled"><i data-lucide="pause"></i>Disabled</span>
+{% elif account.last_status == "healthy" %}
+  <span class="badge healthy"><i data-lucide="check"></i>Healthy</span>
+{% elif account.last_status == "down" %}
+  <span class="badge down"><i data-lucide="x"></i>Down</span>
+{% else %}
+  <span class="badge pending"><i data-lucide="clock-3"></i>Pending</span>
+{% endif %}

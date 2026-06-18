@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}API Checker{% endblock %}</title>
+  {% block head %}{% endblock %}
+  <link rel="stylesheet" href="{{ url_for('static', path='/app.css') }}">
+  <script src="{{ url_for('static', path='/vendor/lucide.min.js') }}" defer></script>
+  <script src="{{ url_for('static', path='/app.js') }}" defer></script>
+</head>
+<body>
+  <aside class="sidebar">
+    <a class="brand" href="/">
+      <span class="brand-mark"><i data-lucide="activity"></i></span>
+      <span>API Checker</span>
+    </a>
+    <nav>
+      <a href="/" class="{{ 'active' if path == '/' else '' }}">
+        <i data-lucide="layout-dashboard"></i><span>Dashboard</span>
+      </a>
+      <a href="/accounts" class="{{ 'active' if path.startswith('/accounts') else '' }}">
+        <i data-lucide="server-cog"></i><span>Providers</span>
+      </a>
+      <a href="/settings" class="{{ 'active' if path == '/settings' else '' }}">
+        <i data-lucide="settings"></i><span>Settings</span>
+      </a>
+      <a href="/about" class="{{ 'active' if path == '/about' else '' }}">
+        <i data-lucide="circle-help"></i><span>About</span>
+      </a>
+    </nav>
+    <div class="sidebar-foot">
+      <span class="live-dot"></span>
+      <span>Server running</span>
+    </div>
+  </aside>
+  <main>
+    {% block content %}{% endblock %}
+  </main>
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+</body>
+</html>
