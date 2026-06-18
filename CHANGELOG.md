@@ -2,6 +2,13 @@
 
 All notable changes to API Checker are documented here.
 
+## [0.3.1] - 2026-06-18
+
+### Fixed
+
+- Restored Alembic revision `20260618_0005` so databases previously migrated for
+  multiple API keys remain recognized when running the `main` branch.
+
 ## [0.3.0] - 2026-06-18
 
 ### Added
