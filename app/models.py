@@ -19,6 +19,7 @@ class Account(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     name: Mapped[str] = mapped_column(String(120), unique=True, index=True)
     endpoint_url: Mapped[str] = mapped_column(String(2048))
+    notes: Mapped[str | None] = mapped_column(Text, nullable=True)
     method: Mapped[str] = mapped_column(String(8), default="GET")
     auth_type: Mapped[str] = mapped_column(String(20), default="bearer")
     auth_header: Mapped[str] = mapped_column(String(100), default="Authorization")

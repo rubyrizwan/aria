@@ -162,7 +162,7 @@ def classify_payload(payload: object, attempted_type: str) -> tuple[str, list[di
 
 
 async def probe_account(account: Account) -> ProbeResult:
-    secret = decrypt_secret(account.encrypted_api_key)
+    secret = decrypt_secret(account.encrypted_api_key).strip()
     started = time.perf_counter()
     failures: list[tuple[str, int | None, str]] = []
 

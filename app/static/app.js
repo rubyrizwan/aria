@@ -4,8 +4,11 @@ document.addEventListener("DOMContentLoaded", () => {
   document.querySelectorAll(".reveal-secret").forEach((button) => {
     button.addEventListener("click", () => {
       const input = button.parentElement.querySelector("input");
-      input.type = input.type === "password" ? "text" : "password";
-      button.innerHTML = `<i data-lucide="${input.type === "password" ? "eye" : "eye-off"}"></i>`;
+      const isHidden = input.type === "password";
+      input.type = isHidden ? "text" : "password";
+      const showLabel = button.dataset.showLabel || "Show";
+      const hideLabel = button.dataset.hideLabel || "Hide";
+      button.innerHTML = `<i data-lucide="${isHidden ? "eye-off" : "eye"}"></i><span>${isHidden ? hideLabel : showLabel}</span>`;
       if (window.lucide) window.lucide.createIcons();
     });
   });

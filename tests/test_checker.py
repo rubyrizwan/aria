@@ -143,6 +143,25 @@ async def test_public_openai_endpoint_without_key(monkeypatch):
 
 
 @pytest.mark.asyncio
+async def test_probe_strips_whitespace_from_stored_key(monkeypatch):
+    async def handler(request):
+        assert request.headers["Authorization"] == "Bearer clean-key"
+        return httpx.Response(
+            200,
+            json={
+                "object": "list",
+                "data": [{"id": "model", "object": "model"}],
+            },
+        )
+
+    mock_client(monkeypatch, handler)
+    result = await probe_account(
+        account(encrypted_api_key=encrypt_secret(" clean-key \n"))
+    )
+    assert result.status == "healthy"
+
+
+@pytest.mark.asyncio
 async def test_authentication_failure_identifies_provider(monkeypatch):
     async def handler(request):
         return httpx.Response(

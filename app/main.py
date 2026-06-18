@@ -15,6 +15,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.database import Base, engine, get_db
+from app.checker import probe_account
 from app.models import Account, CheckResult
 from app.scheduler import scheduler
 from app.security import SecretConfigurationError, encrypt_secret, get_fernet
@@ -59,6 +60,10 @@ APP_VERSION = __version__
 RELEASE_DATE = datetime.strptime(__release_date__, "%Y-%m-%d").strftime("%d %B %Y")
 
 
+def provider_ordering():
+    return func.lower(Account.name), Account.name
+
+
 def template_context(request: Request, **values):
     return {"request": request, "path": request.url.path, **values}
 
@@ -93,7 +98,8 @@ def account_form_values(form) -> dict:
     return {
         "name": str(form.get("name", "")).strip(),
         "endpoint_url": str(form.get("endpoint_url", "")).strip(),
-        "api_key": str(form.get("api_key", "")),
+        "notes": str(form.get("notes", "")).strip(),
+        "api_key": str(form.get("api_key", "")).strip(),
         "remove_api_key": form.get("remove_api_key") == "on",
         "timeout_seconds": str(form.get("timeout_seconds", "10")),
         "interval_minutes": str(form.get("interval_minutes", "5")),
@@ -133,6 +139,27 @@ def validate_account_form(values: dict) -> dict:
             "interval_minutes": interval_minutes,
         },
     }
+
+
+def verification_candidate(clean: dict, existing_secret: str | None = None) -> Account:
+    if clean["remove_api_key"]:
+        encrypted_api_key = encrypt_secret("")
+    elif clean["api_key"]:
+        encrypted_api_key = encrypt_secret(clean["api_key"])
+    elif existing_secret:
+        encrypted_api_key = existing_secret
+    else:
+        encrypted_api_key = encrypt_secret("")
+
+    return Account(
+        name=clean["name"],
+        endpoint_url=clean["endpoint_url"],
+        notes=clean.get("notes") or None,
+        encrypted_api_key=encrypted_api_key,
+        timeout_seconds=clean["timeout_seconds"],
+        interval_minutes=clean["interval_minutes"],
+        enabled=clean["enabled"],
+    )
 
 
 @app.get("/healthz")
@@ -180,7 +207,7 @@ def dashboard(request: Request, db: DbSession, page: int = 1):
     accounts = list(
         db.scalars(
             select(Account)
-            .order_by(Account.name)
+            .order_by(*provider_ordering())
             .offset(pager["offset"])
             .limit(PAGE_SIZE)
         )
@@ -194,6 +221,16 @@ def dashboard(request: Request, db: DbSession, page: int = 1):
     disabled = db.scalar(
         select(func.count(Account.id)).where(Account.enabled.is_(False))
     ) or 0
+    openai = db.scalar(
+        select(func.count(Account.id)).where(Account.provider_type == "openai")
+    ) or 0
+    anthropic = db.scalar(
+        select(func.count(Account.id)).where(Account.provider_type == "anthropic")
+    ) or 0
+    model_total = sum(
+        len(account.models) for account in db.scalars(select(Account))
+    )
+    auto_monitoring = is_auto_monitoring_enabled(db)
     since = datetime.now(timezone.utc) - timedelta(hours=24)
     check_total = db.scalar(
         select(func.count(CheckResult.id)).where(CheckResult.checked_at >= since)
@@ -223,6 +260,10 @@ def dashboard(request: Request, db: DbSession, page: int = 1):
                 "healthy": healthy,
                 "down": down,
                 "disabled": disabled,
+                "openai": openai,
+                "anthropic": anthropic,
+                "model_total": model_total,
+                "auto_monitoring": auto_monitoring,
                 "uptime": uptime_percent(check_healthy, check_total),
             },
         ),
@@ -274,6 +315,54 @@ def new_account(request: Request):
                 "enabled": True,
             },
             errors=[],
+            verification=None,
+        ),
+    )
+
+
+@app.post("/accounts/verify", response_class=HTMLResponse)
+async def verify_account(request: Request, db: DbSession):
+    form = await request.form()
+    values = account_form_values(form)
+    result = validate_account_form(values)
+    account_id_value = str(form.get("account_id", "")).strip()
+    account = None
+    existing_secret = None
+
+    if account_id_value:
+        try:
+            account = db.get(Account, int(account_id_value))
+        except ValueError:
+            account = None
+        if not account:
+            raise HTTPException(404)
+        existing_secret = account.encrypted_api_key
+
+    if result["errors"]:
+        return templates.TemplateResponse(
+            request,
+            "account_form.html",
+            template_context(
+                request,
+                account=account,
+                values=values,
+                errors=result["errors"],
+                verification=None,
+            ),
+            status_code=422,
+        )
+
+    candidate = verification_candidate(result["clean"], existing_secret)
+    verification = await probe_account(candidate)
+    return templates.TemplateResponse(
+        request,
+        "account_form.html",
+        template_context(
+            request,
+            account=account,
+            values=values,
+            errors=[],
+            verification=verification,
         ),
     )
 
@@ -289,7 +378,11 @@ async def create_account(request: Request, db: DbSession):
             request,
             "account_form.html",
             template_context(
-                request, account=None, values=values, errors=result["errors"]
+                request,
+                account=None,
+                values=values,
+                errors=result["errors"],
+                verification=None,
             ),
             status_code=422,
         )
@@ -297,6 +390,7 @@ async def create_account(request: Request, db: DbSession):
     account = Account(
         name=clean["name"],
         endpoint_url=clean["endpoint_url"],
+        notes=clean["notes"] or None,
         encrypted_api_key=encrypt_secret(clean["api_key"]),
         timeout_seconds=clean["timeout_seconds"],
         interval_minutes=clean["interval_minutes"],
@@ -388,6 +482,7 @@ def edit_account(request: Request, account_id: int, db: DbSession):
     values = {
         "name": account.name,
         "endpoint_url": account.endpoint_url,
+        "notes": account.notes or "",
         "timeout_seconds": account.timeout_seconds,
         "interval_minutes": account.interval_minutes,
         "enabled": account.enabled,
@@ -418,7 +513,11 @@ async def update_account(request: Request, account_id: int, db: DbSession):
             request,
             "account_form.html",
             template_context(
-                request, account=account, values=values, errors=result["errors"]
+                request,
+                account=account,
+                values=values,
+                errors=result["errors"],
+                verification=None,
             ),
             status_code=422,
         )
@@ -426,6 +525,7 @@ async def update_account(request: Request, account_id: int, db: DbSession):
     for field in (
         "name",
         "endpoint_url",
+        "notes",
         "timeout_seconds",
         "interval_minutes",
         "enabled",

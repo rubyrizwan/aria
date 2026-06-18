@@ -6,26 +6,39 @@
   <div>
     <p class="eyebrow">Overview</p>
     <h1>Provider compatibility</h1>
-    <p class="subtle">OpenAI and Anthropic compatible endpoints and their available models.</p>
+    <p class="subtle">Monitor registered AI providers, compatibility, and model availability.</p>
   </div>
   <a class="button primary" href="/accounts/new"><i data-lucide="plus"></i>Add provider</a>
 </header>
 
+<section class="dashboard-overview">
+  <div class="overview-primary">
+    <span class="overview-icon"><i data-lucide="network"></i></span>
+    <div><span>Registered providers</span><strong>{{ stats.total }}</strong><small>{{ stats.model_total }} models currently indexed</small></div>
+  </div>
+  <div class="overview-breakdown">
+    <div><span class="provider-mark enabled"><i data-lucide="power"></i></span><span><strong>{{ stats.total - stats.disabled }}</strong><small>Enabled providers</small></span></div>
+    <div><span class="provider-mark openai"><i data-lucide="bot"></i></span><span><strong>{{ stats.openai }}</strong><small>OpenAI compatible</small></span></div>
+    <div><span class="provider-mark anthropic"><i data-lucide="sparkles"></i></span><span><strong>{{ stats.anthropic }}</strong><small>Anthropic compatible</small></span></div>
+    <a href="/settings" class="monitoring-state {{ 'enabled' if stats.auto_monitoring else 'disabled' }}"><i data-lucide="{{ 'radio-tower' if stats.auto_monitoring else 'circle-pause' }}"></i><span><strong>Auto monitoring</strong><small>{{ 'Enabled' if stats.auto_monitoring else 'Disabled' }}</small></span></a>
+  </div>
+</section>
+
 <section class="stat-grid">
   <article class="stat">
-    <div class="stat-icon neutral"><i data-lucide="layers-3"></i></div>
-    <div><span>Total providers</span><strong>{{ stats.total }}</strong></div>
+    <div class="stat-icon neutral"><i data-lucide="circle-pause"></i></div>
+    <div><span>Disabled</span><strong>{{ stats.disabled }}</strong></div>
   </article>
   <article class="stat">
-    <div class="stat-icon good"><i data-lucide="circle-check"></i></div>
+    <div class="stat-icon good"><i data-lucide="shield-check"></i></div>
     <div><span>Compatible</span><strong>{{ stats.healthy }}</strong></div>
   </article>
   <article class="stat">
-    <div class="stat-icon bad"><i data-lucide="circle-alert"></i></div>
+    <div class="stat-icon bad"><i data-lucide="server-crash"></i></div>
     <div><span>Unavailable</span><strong>{{ stats.down }}</strong></div>
   </article>
   <article class="stat">
-    <div class="stat-icon info"><i data-lucide="gauge"></i></div>
+    <div class="stat-icon info"><i data-lucide="chart-no-axes-combined"></i></div>
     <div><span>24h success</span><strong>{{ stats.uptime ~ '%' if stats.uptime is not none else '—' }}</strong></div>
   </article>
 </section>
@@ -36,16 +49,16 @@
     <a class="text-link" href="/accounts">View all <i data-lucide="arrow-right"></i></a>
   </div>
   <div class="table-wrap">
-    <table>
+    <table class="dashboard-provider-table">
       <thead><tr><th>Provider</th><th>Status</th><th>Compatibility</th><th>Models</th><th>Last check</th><th></th></tr></thead>
       <tbody>
       {% for account in accounts %}
         <tr>
-          <td><a class="name-link" href="/accounts/{{ account.id }}">{{ account.name }}</a></td>
+          <td><a class="provider-name" href="/accounts/{{ account.id }}"><span class="provider-avatar {{ account.provider_type }}"><i data-lucide="{{ 'bot' if account.provider_type == 'openai' else 'sparkles' if account.provider_type == 'anthropic' else 'server' }}"></i></span><span><strong>{{ account.name }}</strong><small>{{ account.endpoint_url }}</small></span></a></td>
           <td>{% include "_status.html" %}</td>
-          <td><span class="provider-type {{ account.provider_type }}">{{ account.provider_type|capitalize }}</span></td>
-          <td>{{ account.models|length }}</td>
-          <td>{{ account.last_checked_at|datetime }}</td>
+          <td><span class="provider-type {{ account.provider_type }}"><i data-lucide="{{ 'bot' if account.provider_type == 'openai' else 'sparkles' if account.provider_type == 'anthropic' else 'circle-help' }}"></i>{{ account.provider_type|capitalize }}</span></td>
+          <td><span class="model-total"><i data-lucide="boxes"></i>{{ account.models|length }}</span></td>
+          <td><span class="last-check"><i data-lucide="clock-3"></i>{{ account.last_checked_at|datetime }}</span></td>
           <td><a class="icon-button" title="Open account" href="/accounts/{{ account.id }}"><i data-lucide="chevron-right"></i></a></td>
         </tr>
       {% else %}

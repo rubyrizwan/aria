@@ -2,6 +2,23 @@
 
 All notable changes to API Checker are documented here.
 
+## [0.3.0] - 2026-06-18
+
+### Added
+
+- Provider endpoint and API key verification before saving.
+- Persistent internal notes for API providers.
+- Dashboard provider breakdown and automatic-monitoring summary.
+
+### Changed
+
+- Improved dashboard provider ordering, icons, typography, and responsive layout.
+- Added API key visibility controls and refined the provider form layout.
+
+### Fixed
+
+- Trimmed surrounding whitespace from API keys before verification and monitoring.
+
 ## [0.2.1] - 2026-06-18
 
 ### Added

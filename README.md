@@ -5,7 +5,7 @@ memeriksa API key, dan mengambil daftar model secara berkala. Aplikasi berjalan 
 satu proses FastAPI, menyimpan data di SQLite, dan mengenkripsi API key sebelum
 menyimpannya.
 
-Versi saat ini: **0.2.1**. Fitur token usage belum termasuk dalam versi ini.
+Versi saat ini: **0.3.0**. Fitur token usage belum termasuk dalam versi ini.
 
 ## Fitur
 
@@ -210,6 +210,7 @@ Commit dan push tetap dilakukan secara eksplisit.
 | Version | Date | Ringkasan |
 | --- | --- | --- |
 <!-- version-history -->
+| `0.3.0` | 2026-06-18 | Verifikasi provider, Notes persisten, dan ringkasan dashboard baru |
 | `0.2.1` | 2026-06-18 | Settings, About, capability model, pagination, launcher hardening, dan release tooling |
 | `0.2.0` | 2026-06-18 | Deteksi OpenAI/Anthropic, discovery model, scheduler, dan dashboard provider |
 | `0.1.0` | 2026-06-18 | Implementasi awal FastAPI, SQLite, enkripsi, dan SSH tunnel |
