@@ -7,7 +7,7 @@ from urllib.parse import urlsplit
 
 
 ALLOWED_METHODS = {"GET", "POST", "PUT", "PATCH", "DELETE", "HEAD"}
-ALLOWED_INTERVALS = {1, 5, 15, 30, 60}
+ALLOWED_INTERVALS = {5, 15, 30, 60, 360}
 HEADER_NAME = re.compile(r"^[!#$%&'*+\-.^_`|~0-9A-Za-z]+$")
 FORBIDDEN_HEADERS = {
     "connection",

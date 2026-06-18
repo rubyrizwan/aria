@@ -8,7 +8,6 @@
     <h1>Provider compatibility</h1>
     <p class="subtle">Monitor registered AI providers, compatibility, and model availability.</p>
   </div>
-  <a class="button primary" href="/accounts/new"><i data-lucide="plus"></i>Add provider</a>
 </header>
 
 <section class="dashboard-overview">
@@ -54,7 +53,7 @@
       <tbody>
       {% for account in accounts %}
         <tr>
-          <td><a class="provider-name" href="/accounts/{{ account.id }}"><span class="provider-avatar {{ account.provider_type }}"><i data-lucide="{{ 'bot' if account.provider_type == 'openai' else 'sparkles' if account.provider_type == 'anthropic' else 'server' }}"></i></span><span><strong>{{ account.name }}</strong><small>{{ account.endpoint_url }}</small></span></a></td>
+          <td><a class="provider-name" href="/accounts/{{ account.id }}"><span class="provider-avatar {{ account.provider_type }}"><i data-lucide="{{ 'bot' if account.provider_type == 'openai' else 'sparkles' if account.provider_type == 'anthropic' else 'server' }}"></i></span><span><strong>{{ account.name }}</strong></span></a></td>
           <td>{% include "_status.html" %}</td>
           <td><span class="provider-type {{ account.provider_type }}"><i data-lucide="{{ 'bot' if account.provider_type == 'openai' else 'sparkles' if account.provider_type == 'anthropic' else 'circle-help' }}"></i>{{ account.provider_type|capitalize }}</span></td>
           <td><span class="model-total"><i data-lucide="boxes"></i>{{ account.models|length }}</span></td>

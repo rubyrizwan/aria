@@ -2,6 +2,25 @@
 
 All notable changes to API Checker are documented here.
 
+## [0.4.0] - 2026-06-19
+
+### Added
+
+- Provider information modal with decrypted API key reveal and copy actions.
+- API key labels, masked credentials on provider details, and a dedicated favicon.
+- Five-minute to six-hour monitoring interval options with a 60-minute default.
+
+### Changed
+
+- Improved provider tables with row numbers, totals, responsive columns, and reusable modals.
+- Moved provider deletion to the detail header and removed typed-name confirmation.
+- Simplified the dashboard provider table and aligned overview icon sizing.
+
+### Fixed
+
+- Preserved compatibility and discovered models when editing provider metadata.
+- Kept Save provider functional after connection verification.
+
 ## [0.3.0] - 2026-06-18
 
 ### Added

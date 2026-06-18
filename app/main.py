@@ -7,8 +7,8 @@ from pathlib import Path
 from typing import Annotated
 from urllib.parse import urlencode
 
-from fastapi import Depends, FastAPI, Form, HTTPException, Request
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi import Depends, FastAPI, HTTPException, Request
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from sqlalchemy import func, select
@@ -18,7 +18,12 @@ from app.database import Base, engine, get_db
 from app.checker import probe_account
 from app.models import Account, CheckResult
 from app.scheduler import scheduler
-from app.security import SecretConfigurationError, encrypt_secret, get_fernet
+from app.security import (
+    SecretConfigurationError,
+    decrypt_secret,
+    encrypt_secret,
+    get_fernet,
+)
 from app.services import account_metrics, schedule_next, uptime_percent
 from app.services import is_auto_monitoring_enabled, set_auto_monitoring
 from app.validation import (
@@ -99,10 +104,11 @@ def account_form_values(form) -> dict:
         "name": str(form.get("name", "")).strip(),
         "endpoint_url": str(form.get("endpoint_url", "")).strip(),
         "notes": str(form.get("notes", "")).strip(),
+        "api_key_label": str(form.get("api_key_label", "")).strip(),
         "api_key": str(form.get("api_key", "")).strip(),
         "remove_api_key": form.get("remove_api_key") == "on",
         "timeout_seconds": str(form.get("timeout_seconds", "10")),
-        "interval_minutes": str(form.get("interval_minutes", "5")),
+        "interval_minutes": str(form.get("interval_minutes", "60")),
         "enabled": form.get("enabled") == "on",
     }
 
@@ -116,6 +122,8 @@ def validate_account_form(values: dict) -> dict:
         endpoint_url = values["endpoint_url"]
     if not values["name"]:
         errors.append("Provider name is required.")
+    if not values["api_key_label"]:
+        errors.append("API key label is required.")
     try:
         timeout_seconds = int(values["timeout_seconds"])
         if not 1 <= timeout_seconds <= 60:
@@ -129,7 +137,7 @@ def validate_account_form(values: dict) -> dict:
             raise ValueError
     except ValueError:
         errors.append("Select a supported check interval.")
-        interval_minutes = 5
+        interval_minutes = 60
     return {
         "errors": errors,
         "clean": {
@@ -160,6 +168,14 @@ def verification_candidate(clean: dict, existing_secret: str | None = None) -> A
         interval_minutes=clean["interval_minutes"],
         enabled=clean["enabled"],
     )
+
+
+def account_connection_changed(account: Account, clean: dict) -> bool:
+    if account.endpoint_url != clean["endpoint_url"]:
+        return True
+    current_secret = decrypt_secret(account.encrypted_api_key)
+    next_secret = "" if clean["remove_api_key"] else clean["api_key"]
+    return next_secret != current_secret
 
 
 @app.get("/healthz")
@@ -278,7 +294,8 @@ def accounts_page(
     status: str = "all",
     page: int = 1,
 ):
-    query = select(Account).order_by(Account.name)
+    provider_total = db.scalar(select(func.count(Account.id))) or 0
+    query = select(Account).order_by(*provider_ordering())
     if q:
         query = query.where(Account.name.ilike(f"%{q.strip()}%"))
     if status == "disabled":
@@ -297,6 +314,7 @@ def accounts_page(
             query=q,
             status=status,
             pager=pager,
+            provider_total=provider_total,
         ),
     )
 
@@ -311,8 +329,9 @@ def new_account(request: Request):
             account=None,
             values={
                 "timeout_seconds": 10,
-                "interval_minutes": 5,
+                "interval_minutes": 60,
                 "enabled": True,
+                "api_key_label": "Default",
             },
             errors=[],
             verification=None,
@@ -391,6 +410,7 @@ async def create_account(request: Request, db: DbSession):
         name=clean["name"],
         endpoint_url=clean["endpoint_url"],
         notes=clean["notes"] or None,
+        api_key_label=clean["api_key_label"],
         encrypted_api_key=encrypt_secret(clean["api_key"]),
         timeout_seconds=clean["timeout_seconds"],
         interval_minutes=clean["interval_minutes"],
@@ -474,6 +494,37 @@ def account_detail(
     )
 
 
+@app.get("/accounts/{account_id}/summary")
+def account_summary(account_id: int, db: DbSession):
+    account = db.get(Account, account_id)
+    if not account:
+        raise HTTPException(404)
+    return JSONResponse(
+        {
+            "name": account.name,
+            "base_url": account.endpoint_url,
+            "api_key_label": account.api_key_label,
+            "api_key": decrypt_secret(account.encrypted_api_key),
+            "notes": account.notes or "",
+            "model_count": len(account.models),
+            "compatibility": account.provider_type,
+            "status": "disabled" if not account.enabled else account.last_status,
+        },
+        headers={"Cache-Control": "no-store"},
+    )
+
+
+@app.get("/accounts/{account_id}/api-key")
+def account_api_key(account_id: int, db: DbSession):
+    account = db.get(Account, account_id)
+    if not account:
+        raise HTTPException(404)
+    return JSONResponse(
+        {"api_key": decrypt_secret(account.encrypted_api_key)},
+        headers={"Cache-Control": "no-store"},
+    )
+
+
 @app.get("/accounts/{account_id}/edit", response_class=HTMLResponse)
 def edit_account(request: Request, account_id: int, db: DbSession):
     account = db.get(Account, account_id)
@@ -483,6 +534,8 @@ def edit_account(request: Request, account_id: int, db: DbSession):
         "name": account.name,
         "endpoint_url": account.endpoint_url,
         "notes": account.notes or "",
+        "api_key_label": account.api_key_label,
+        "api_key": decrypt_secret(account.encrypted_api_key),
         "timeout_seconds": account.timeout_seconds,
         "interval_minutes": account.interval_minutes,
         "enabled": account.enabled,
@@ -522,10 +575,12 @@ async def update_account(request: Request, account_id: int, db: DbSession):
             status_code=422,
         )
     clean = result["clean"]
+    connection_changed = account_connection_changed(account, clean)
     for field in (
         "name",
         "endpoint_url",
         "notes",
+        "api_key_label",
         "timeout_seconds",
         "interval_minutes",
         "enabled",
@@ -533,12 +588,13 @@ async def update_account(request: Request, account_id: int, db: DbSession):
         setattr(account, field, clean[field])
     if clean["remove_api_key"]:
         account.encrypted_api_key = encrypt_secret("")
-    elif clean["api_key"]:
+    elif connection_changed:
         account.encrypted_api_key = encrypt_secret(clean["api_key"])
-    account.provider_type = "unknown"
-    account.models_json = "[]"
-    account.models_endpoint = None
-    account.last_status = "pending"
+    if connection_changed:
+        account.provider_type = "unknown"
+        account.models_json = "[]"
+        account.models_endpoint = None
+        account.last_status = "pending"
     account.next_check_at = datetime.now(timezone.utc) if account.enabled else None
     db.commit()
     return RedirectResponse(f"/accounts/{account_id}", status_code=303)
@@ -564,16 +620,10 @@ async def check_now(account_id: int, db: DbSession):
 
 
 @app.post("/accounts/{account_id}/delete")
-def delete_account(
-    account_id: int,
-    db: DbSession,
-    confirmation: Annotated[str, Form()] = "",
-):
+def delete_account(account_id: int, db: DbSession):
     account = db.get(Account, account_id)
     if not account:
         raise HTTPException(404)
-    if confirmation != account.name:
-        raise HTTPException(400, "Account name confirmation did not match.")
     db.delete(account)
     db.commit()
     return RedirectResponse("/accounts", status_code=303)
