@@ -26,7 +26,11 @@ def test_model_pagination_uses_independent_query_parameter():
         page_param="model_page",
         page=3,
         model_q="gpt vision",
+        capability="vision",
+        inference_access="available",
     )
     assert "page=3" in pager["next_url"]
     assert "model_page=3" in pager["next_url"]
     assert "model_q=gpt+vision" in pager["next_url"]
+    assert "capability=vision" in pager["next_url"]
+    assert "inference_access=available" in pager["next_url"]

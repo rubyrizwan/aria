@@ -24,17 +24,21 @@
   </div>
 </div>
 {% endif %}
-<form class="form-layout" method="post">
+<form class="form-layout" method="post" action="{{ '/accounts/' ~ account.id ~ '/edit' if account else '/accounts/new' }}">
   {% if account %}<input type="hidden" name="account_id" value="{{ account.id }}">{% endif %}
   <section class="form-section">
     <div class="form-section-title"><h2>Provider</h2><p>Only the base URL and optional API key are needed.</p></div>
     <div class="fields">
       <label class="field full"><span>Provider name</span><input required maxlength="120" name="name" value="{{ values.name or '' }}" placeholder="Production gateway"></label>
       <label class="field full"><span>Base URL or endpoint</span><input required type="url" name="endpoint_url" value="{{ values.endpoint_url or '' }}" placeholder="https://api.example.com or https://api.example.com/v1"></label>
-      <label class="field full">
-        <span>API key {{ '(leave blank to keep current)' if account else '(optional)' }}</span>
+      <label class="field api-key-label-field">
+        <span>Label</span>
+        <input required maxlength="120" name="api_key_label" value="{{ values.api_key_label or 'Default' }}" placeholder="Free, Paid, or Trial">
+      </label>
+      <label class="field api-key-value-field">
+        <span>API key {{ '(optional)' if not account else '' }}</span>
         <div class="secret-input">
-          <input type="password" name="api_key" autocomplete="off" value="{{ values.api_key or '' }}" placeholder="{{ 'Unchanged' if account else 'Leave blank for public endpoints' }}">
+          <input type="password" name="api_key" autocomplete="off" value="{{ values.api_key or '' }}" placeholder="Leave blank for public endpoints">
           <button class="button secondary reveal-secret" type="button" data-show-label="Show Apikey" data-hide-label="Hide Apikey"><i data-lucide="eye"></i><span>Show Apikey</span></button>
         </div>
       </label>
@@ -49,7 +53,7 @@
   <section class="form-section">
     <div class="form-section-title"><h2>Schedule</h2><p>Refresh provider compatibility and model availability.</p></div>
     <div class="fields">
-      <label class="field"><span>Check interval</span><select name="interval_minutes">{% for interval in [1,5,15,30,60] %}<option value="{{ interval }}" {{ 'selected' if values.interval_minutes|int == interval }}>{{ interval }} minute{{ 's' if interval > 1 }}</option>{% endfor %}</select></label>
+      <label class="field"><span>Check interval</span><select name="interval_minutes">{% for interval in [5,15,30,60,360] %}<option value="{{ interval }}" {{ 'selected' if values.interval_minutes|int == interval }}>{{ interval }} minutes</option>{% endfor %}</select></label>
       <label class="toggle-field"><input type="checkbox" name="enabled" {{ 'checked' if values.enabled }}><span class="toggle"></span><span><strong>Monitoring enabled</strong><small>Detect compatibility and refresh models automatically.</small></span></label>
     </div>
   </section>

@@ -5,19 +5,20 @@ memeriksa API key, dan mengambil daftar model secara berkala. Aplikasi berjalan 
 satu proses FastAPI, menyimpan data di SQLite, dan mengenkripsi API key sebelum
 menyimpannya.
 
-Versi saat ini: **0.3.1**. Fitur token usage belum termasuk dalam versi ini.
+Versi saat ini: **0.4.1**. Fitur token usage belum termasuk dalam versi ini.
 
 ## Fitur
 
 - Deteksi otomatis OpenAI-compatible dan Anthropic-compatible
 - Penemuan model melalui `/v1/models` atau `/models`
 - API key opsional untuk endpoint publik
-- Interval per provider: 1, 5, 15, 30, atau 60 menit
+- Interval per provider: 5, 15, 30, 60, atau 360 menit
 - Dashboard status, compatibility, daftar model, latency, dan histori pemeriksaan
 - Pencarian dan pagination model, maksimal 30 baris per halaman
 - Indikator capability model dari metadata provider atau inferensi nama model
 - Toggle monitoring per provider dan monitoring otomatis global
-- Pemeriksaan manual menggunakan tombol `Check now`
+- Pemeriksaan manual menggunakan tombol `Load models`
+- Pengujian akses inference per model dengan progress dan ringkasan hasil
 - Halaman Settings dan About
 - API key terenkripsi dengan Fernet
 - Retensi histori otomatis, default 30 hari
@@ -210,6 +211,8 @@ Commit dan push tetap dilakukan secara eksplisit.
 | Version | Date | Ringkasan |
 | --- | --- | --- |
 <!-- version-history -->
+| `0.4.1` | 2026-06-19 | Pengujian akses model, progress inference, filter hasil, status monitoring, dan latency inference |
+| `0.4.0` | 2026-06-19 | Modal provider, label API key, interval baru, dan penyempurnaan dashboard |
 | `0.3.1` | 2026-06-18 | Perbaikan kompatibilitas database pada revision Alembic `0005` |
 | `0.3.0` | 2026-06-18 | Verifikasi provider, Notes persisten, dan ringkasan dashboard baru |
 | `0.2.1` | 2026-06-18 | Settings, About, capability model, pagination, launcher hardening, dan release tooling |

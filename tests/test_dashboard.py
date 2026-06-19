@@ -1,3 +1,5 @@
+from pathlib import Path
+
 from sqlalchemy import create_engine, select
 from sqlalchemy.orm import Session
 
@@ -26,3 +28,9 @@ def test_dashboard_provider_order_is_case_insensitive_ascending():
         )
 
     assert names == ["alpha", "Beta", "zeta"]
+
+
+def test_dashboard_template_has_no_add_button_or_endpoint_text():
+    template = (Path(__file__).resolve().parents[1] / "app/templates/dashboard.html").read_text()
+    assert "Add provider" not in template
+    assert "account.endpoint_url" not in template
