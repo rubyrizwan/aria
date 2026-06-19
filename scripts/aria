@@ -86,7 +86,7 @@ discover_running_pid() {
     )"
     [[ -n "$pid" ]] || return 1
     command="$(ps -p "$pid" -o args= 2>/dev/null || true)"
-    if [[ "$command" == *"$ROOT_DIR/.venv/bin/python -m app"* ]]; then
+    if [[ "$command" == *"/.venv/bin/python -m app"* ]]; then
         echo "$pid"
         return
     fi

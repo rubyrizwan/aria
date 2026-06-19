@@ -7,7 +7,7 @@ memeriksa API key, dan mengambil daftar model secara berkala. Aplikasi berjalan 
 satu proses FastAPI, menyimpan data di SQLite, dan mengenkripsi API key sebelum
 menyimpannya.
 
-Versi stabil saat ini: **1.0.0**. Fitur token usage belum termasuk dalam versi ini.
+Versi stabil saat ini: **1.0.1**. Fitur token usage belum termasuk dalam versi ini.
 
 ## Fitur
 
@@ -250,6 +250,7 @@ Commit dan push tetap dilakukan secara eksplisit.
 | Version | Date | Ringkasan |
 | --- | --- | --- |
 <!-- version-history -->
+| `1.0.1` | 2026-06-20 | Perbaikan deteksi proses launcher setelah direktori repository dipindahkan |
 | `1.0.0` | 2026-06-20 | Rilis stabil pertama ARIA untuk monitoring provider, model discovery, dan inference access |
 | `0.4.3` | 2026-06-19 | Perubahan branding aplikasi menjadi ARIA: API Reliability & Inference Analyzer |
 | `0.4.2` | 2026-06-19 | Katalog model lintas provider, histori inference, dashboard operasional, backup, scheduled retest, dan service controls |

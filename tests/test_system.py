@@ -33,6 +33,14 @@ def test_aria_launcher_is_executable_and_uses_english_interface():
     assert "Select an option" not in result.stdout
 
 
+def test_aria_launcher_detects_relocated_processes():
+    root = Path(__file__).resolve().parents[1]
+    launcher = (root / "scripts/aria").read_text()
+
+    assert '"/.venv/bin/python -m app"' in launcher
+    assert '"$ROOT_DIR/.venv/bin/python -m app"' not in launcher
+
+
 def test_sidebar_shows_runtime_information_and_restart_control():
     template = (
         Path(__file__).resolve().parents[1] / "app/templates/base.html"

@@ -2,6 +2,14 @@
 
 All notable changes to ARIA are documented here.
 
+## [1.0.1] - 2026-06-20
+
+### Fixed
+
+- Updated launcher PID discovery to recognize an existing ARIA process after the repository directory is renamed or moved.
+- Prevented a stale process from retaining port 8000 while loading templates from a removed repository path.
+- Added a regression test for relocated launcher-managed processes.
+
 ## [1.0.0] - 2026-06-20
 
 ### Stable Release
