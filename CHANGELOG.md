@@ -1,6 +1,16 @@
 # Changelog
 
-All notable changes to API Checker are documented here.
+All notable changes to ARIA are documented here.
+
+## [0.4.3] - 2026-06-19
+
+### Changed
+
+- Renamed the user-facing product from API Checker to ARIA.
+- Added the expanded product name: API Reliability & Inference Analyzer.
+- Updated browser titles, About page, launcher output, service descriptions, documentation, and application metadata.
+- Renamed the launcher to `scripts/aria` and expanded its English status, health, uptime, log, and SSH tunnel information.
+- Preserved existing `APICHECKER_*` variables, package names, service filenames, and database paths for compatibility.
 
 ## [0.4.2] - 2026-06-19
 

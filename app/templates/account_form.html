@@ -1,11 +1,11 @@
 {% extends "base.html" %}
-{% block title %}{{ 'Edit ' ~ account.name if account else 'Add provider' }} · API Checker{% endblock %}
+{% block title %}{{ 'Edit ' ~ account.name if account else 'Add provider' }} · ARIA{% endblock %}
 {% block content %}
 <header class="page-header compact">
   <div>
     <a class="back-link" href="{{ '/accounts/' ~ account.id if account else '/accounts' }}"><i data-lucide="arrow-left"></i>Providers</a>
     <h1>{{ 'Edit provider' if account else 'Add API provider' }}</h1>
-    <p class="subtle">API Checker will detect OpenAI or Anthropic compatibility from the models endpoint.</p>
+    <p class="subtle">ARIA will detect OpenAI or Anthropic compatibility from the models endpoint.</p>
   </div>
 </header>
 {% if errors %}

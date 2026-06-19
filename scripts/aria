@@ -1,0 +1,306 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+PYTHON="$ROOT_DIR/.venv/bin/python"
+ALEMBIC="$ROOT_DIR/.venv/bin/alembic"
+DATA_DIR="$ROOT_DIR/data"
+PID_FILE="$DATA_DIR/apichecker.pid"
+LOG_FILE="$DATA_DIR/apichecker.log"
+HOST="127.0.0.1"
+
+divider() {
+    printf '%s\n' "------------------------------------------------------------"
+}
+
+app_version() {
+    if [[ -x "$PYTHON" ]]; then
+        (
+            cd "$ROOT_DIR"
+            "$PYTHON" -c "from app.version import __version__; print(__version__)"
+        ) 2>/dev/null || printf '%s\n' "unknown"
+    else
+        printf '%s\n' "unknown"
+    fi
+}
+
+configured_port() {
+    (
+        cd "$ROOT_DIR"
+        "$PYTHON" -c "from app.config import settings; print(settings.port)"
+    )
+}
+
+configured_database() {
+    (
+        cd "$ROOT_DIR"
+        "$PYTHON" -c "from app.config import settings; print(settings.database_url)"
+    )
+}
+
+configured_manager() {
+    (
+        cd "$ROOT_DIR"
+        "$PYTHON" -c "from app.config import settings; print(settings.service_manager)"
+    )
+}
+
+print_header() {
+    printf '\n'
+    divider
+    printf 'ARIA - API Reliability & Inference Analyzer\n'
+    printf 'Version %s\n' "$(app_version)"
+    divider
+}
+
+require_runtime() {
+    if [[ ! -x "$PYTHON" ]]; then
+        printf 'Error: Python virtual environment was not found at:\n  %s\n' "$PYTHON" >&2
+        printf 'Follow the installation instructions in README.md.\n' >&2
+        exit 1
+    fi
+    if [[ ! -x "$ALEMBIC" ]]; then
+        printf 'Error: Alembic was not found at:\n  %s\n' "$ALEMBIC" >&2
+        exit 1
+    fi
+    if [[ ! -f "$ROOT_DIR/.env" ]]; then
+        printf 'Error: Configuration file was not found:\n  %s/.env\n' "$ROOT_DIR" >&2
+        exit 1
+    fi
+}
+
+is_running() {
+    [[ -f "$PID_FILE" ]] || return 1
+    local pid
+    pid="$(cat "$PID_FILE")"
+    [[ "$pid" =~ ^[0-9]+$ ]] && kill -0 "$pid" 2>/dev/null
+}
+
+discover_running_pid() {
+    local port pid command
+    port="$(configured_port)"
+    pid="$(
+        ss -ltnp "( sport = :${port} )" 2>/dev/null \
+            | sed -n 's/.*pid=\([0-9][0-9]*\).*/\1/p' \
+            | head -n 1
+    )"
+    [[ -n "$pid" ]] || return 1
+    command="$(ps -p "$pid" -o args= 2>/dev/null || true)"
+    if [[ "$command" == *"$ROOT_DIR/.venv/bin/python -m app"* ]]; then
+        echo "$pid"
+        return
+    fi
+    return 1
+}
+
+sync_pid_file() {
+    if is_running; then
+        return
+    fi
+    local discovered
+    if discovered="$(discover_running_pid)"; then
+        echo "$discovered" >"$PID_FILE"
+    fi
+}
+
+process_uptime() {
+    local pid="$1"
+    ps -p "$pid" -o etime= 2>/dev/null | xargs || printf '%s' "unknown"
+}
+
+health_status() {
+    local port="$1"
+    if curl --fail --silent --max-time 2 \
+        "http://${HOST}:${port}/healthz" >/dev/null 2>&1; then
+        printf '%s' "Healthy"
+    else
+        printf '%s' "Not responding"
+    fi
+}
+
+start() {
+    require_runtime
+    sync_pid_file
+    if is_running; then
+        printf 'ARIA is already running.\n'
+        status
+        return
+    fi
+
+    rm -f "$PID_FILE"
+    mkdir -p "$DATA_DIR"
+    cd "$ROOT_DIR"
+    local port
+    port="$(configured_port)"
+    printf 'Applying database migrations...\n'
+    if ! "$ALEMBIC" upgrade head >>"$LOG_FILE" 2>&1; then
+        printf 'Error: Database migration failed.\nLog: %s\n' "$LOG_FILE" >&2
+        exit 1
+    fi
+
+    printf 'Starting ARIA on %s:%s...\n' "$HOST" "$port"
+    nohup "$PYTHON" -m app >>"$LOG_FILE" 2>&1 &
+    local pid=$!
+    echo "$pid" >"$PID_FILE"
+
+    for _ in {1..30}; do
+        if ! kill -0 "$pid" 2>/dev/null; then
+            rm -f "$PID_FILE"
+            printf 'Error: ARIA exited during startup.\nLog: %s\n' "$LOG_FILE" >&2
+            exit 1
+        fi
+        if curl --fail --silent --max-time 2 "http://${HOST}:${port}/healthz" \
+            >/dev/null 2>&1; then
+            printf 'ARIA started successfully.\n'
+            status
+            return
+        fi
+        sleep 0.2
+    done
+
+    printf 'Warning: Process %s is running, but the health check is not responding.\n' "$pid"
+    printf 'Review the log: %s\n' "$LOG_FILE"
+}
+
+stop() {
+    require_runtime
+    sync_pid_file
+    if ! is_running; then
+        rm -f "$PID_FILE"
+        printf 'ARIA is already stopped.\n'
+        return
+    fi
+
+    local pid
+    pid="$(cat "$PID_FILE")"
+    printf 'Stopping ARIA (PID %s)...\n' "$pid"
+    kill "$pid"
+
+    for _ in {1..25}; do
+        if ! kill -0 "$pid" 2>/dev/null; then
+            rm -f "$PID_FILE"
+            printf 'ARIA stopped successfully.\n'
+            return
+        fi
+        sleep 0.2
+    done
+
+    printf 'Warning: Graceful shutdown timed out; sending SIGKILL.\n' >&2
+    kill -9 "$pid" 2>/dev/null || true
+    rm -f "$PID_FILE"
+    printf 'ARIA was force-stopped.\n'
+}
+
+restart() {
+    printf 'Restarting ARIA...\n'
+    stop
+    start
+}
+
+status() {
+    require_runtime
+    local port database manager
+    port="$(configured_port)"
+    database="$(configured_database)"
+    manager="$(configured_manager)"
+    sync_pid_file
+
+    print_header
+    if is_running; then
+        local pid uptime health
+        pid="$(cat "$PID_FILE")"
+        uptime="$(process_uptime "$pid")"
+        health="$(health_status "$port")"
+        printf '%-16s %s\n' "Status:" "Running"
+        printf '%-16s %s\n' "Health:" "$health"
+        printf '%-16s %s\n' "Process ID:" "$pid"
+        printf '%-16s %s\n' "Uptime:" "$uptime"
+        printf '%-16s %s\n' "Bind address:" "${HOST}:${port}"
+        printf '%-16s %s\n' "Local URL:" "http://${HOST}:${port}"
+    else
+        rm -f "$PID_FILE"
+        printf '%-16s %s\n' "Status:" "Stopped"
+        printf '%-16s %s\n' "Health:" "Unavailable"
+        printf '%-16s %s\n' "Bind address:" "${HOST}:${port} (inactive)"
+    fi
+    printf '%-16s %s\n' "Service mode:" "$manager"
+    printf '%-16s %s\n' "Database:" "$database"
+    printf '%-16s %s\n' "Log file:" "$LOG_FILE"
+    printf '%-16s %s\n' "PID file:" "$PID_FILE"
+    divider
+    printf 'SSH tunnel: ssh -N -L 8080:%s:%s user@your-vps\n' "$HOST" "$port"
+    if ! is_running; then
+        return 1
+    fi
+}
+
+view_logs() {
+    mkdir -p "$DATA_DIR"
+    touch "$LOG_FILE"
+    printf 'Showing the latest 60 log lines from:\n%s\n\n' "$LOG_FILE"
+    tail -n 60 "$LOG_FILE"
+}
+
+show_help() {
+    print_header
+    printf 'Usage:\n'
+    printf '  %s [command]\n\n' "$0"
+    printf 'Commands:\n'
+    printf '  %-10s %s\n' "start" "Apply migrations and start ARIA in the background."
+    printf '  %-10s %s\n' "stop" "Stop the launcher-managed ARIA process."
+    printf '  %-10s %s\n' "restart" "Stop and start ARIA."
+    printf '  %-10s %s\n' "status" "Show health, PID, uptime, bind address, and paths."
+    printf '  %-10s %s\n' "logs" "Show the latest 60 application log lines."
+    printf '  %-10s %s\n' "help" "Show this help message."
+    printf '  %-10s %s\n' "menu" "Open the interactive launcher menu."
+    printf '\nNotes:\n'
+    printf '  - ARIA binds to 127.0.0.1 and is intended for SSH tunnel access.\n'
+    printf '  - Runtime files retain their existing apichecker names for compatibility.\n'
+    printf '  - Use systemctl --user when ARIA is installed as a user service.\n'
+}
+
+show_menu() {
+    while true; do
+        print_header
+        printf '1. Start ARIA\n'
+        printf '2. Stop ARIA\n'
+        printf '3. Restart ARIA\n'
+        printf '4. Show status\n'
+        printf '5. View logs\n'
+        printf '6. Help\n'
+        printf '7. Exit\n\n'
+        read -r -p "Select an option [1-7]: " choice
+        printf '\n'
+
+        case "$choice" in
+            1) start ;;
+            2) stop ;;
+            3) restart ;;
+            4) status || true ;;
+            5) view_logs ;;
+            6) show_help ;;
+            7)
+                printf 'Launcher closed. ARIA process state was not changed.\n'
+                return
+                ;;
+            *) printf 'Invalid option. Select a number from 1 to 7.\n' >&2 ;;
+        esac
+        printf '\nPress Enter to return to the menu...'
+        read -r
+    done
+}
+
+case "${1:-menu}" in
+    start) start ;;
+    stop) stop ;;
+    restart) restart ;;
+    status) status ;;
+    logs) view_logs ;;
+    help|--help|-h) show_help ;;
+    menu) show_menu ;;
+    *)
+        printf 'Unknown command: %s\n' "$1" >&2
+        printf 'Run "%s help" for usage information.\n' "$0" >&2
+        exit 2
+        ;;
+esac

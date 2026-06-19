@@ -1,5 +1,5 @@
 [Unit]
-Description=Backup API Checker data
+Description=Backup ARIA data
 
 [Service]
 Type=oneshot

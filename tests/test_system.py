@@ -1,12 +1,36 @@
 from pathlib import Path
 
 import asyncio
+import os
+import subprocess
 
 import pytest
 from fastapi import HTTPException
 from starlette.requests import Request
 
 from app import main
+
+
+def test_aria_launcher_is_executable_and_uses_english_interface():
+    root = Path(__file__).resolve().parents[1]
+    launcher = root / "scripts/aria"
+
+    assert launcher.is_file()
+    assert os.access(launcher, os.X_OK)
+    assert not (root / "scripts/apichecker").exists()
+
+    result = subprocess.run(
+        [str(launcher), "help"],
+        cwd=root,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+
+    assert "ARIA - API Reliability & Inference Analyzer" in result.stdout
+    assert "Commands:" in result.stdout
+    assert "latest 60 application log lines" in result.stdout
+    assert "Select an option" not in result.stdout
 
 
 def test_sidebar_shows_runtime_information_and_restart_control():

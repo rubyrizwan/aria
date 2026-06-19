@@ -59,7 +59,7 @@ document.addEventListener("DOMContentLoaded", () => {
     body.className = "modal-message";
     body.innerHTML = '<span class="loading-spinner"></span><p>Restarting the server. This page will reconnect automatically.</p>';
     openModal({
-      title: "Restarting API Checker",
+      title: "Restarting ARIA",
       subtitle: `${window.location.hostname}:${window.location.port || (window.location.protocol === "https:" ? "443" : "80")}`,
       body,
       trigger: submitter,

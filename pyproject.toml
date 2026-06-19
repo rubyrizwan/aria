@@ -1,7 +1,7 @@
 [project]
 name = "apichecker"
-version = "0.4.2"
-description = "Lightweight dashboard for scheduled API credential and endpoint checks."
+version = "0.4.3"
+description = "ARIA: API Reliability & Inference Analyzer."
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [

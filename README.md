@@ -1,11 +1,13 @@
-# API Checker
+# ARIA
+
+**API Reliability & Inference Analyzer**
 
 Dashboard ringan untuk mendeteksi endpoint yang kompatibel dengan OpenAI atau Anthropic,
 memeriksa API key, dan mengambil daftar model secara berkala. Aplikasi berjalan sebagai
 satu proses FastAPI, menyimpan data di SQLite, dan mengenkripsi API key sebelum
 menyimpannya.
 
-Versi saat ini: **0.4.2**. Fitur token usage belum termasuk dalam versi ini.
+Versi saat ini: **0.4.3**. Fitur token usage belum termasuk dalam versi ini.
 
 ## Fitur
 
@@ -76,23 +78,26 @@ Jangan menjalankan lebih dari satu worker karena scheduler berada di proses web 
 Jalankan satu script pengelola:
 
 ```bash
-./scripts/apichecker
+./scripts/aria
 ```
 
-Script akan menampilkan pilihan:
+The launcher displays these options:
 
-1. Start
-2. Stop
-3. Status
-4. Help
-5. Exit
+1. Start ARIA
+2. Stop ARIA
+3. Restart ARIA
+4. Show status
+5. View logs
+6. Help
+7. Exit
 
-Perintah juga dapat diberikan langsung, misalnya
-`./scripts/apichecker start`, `./scripts/apichecker stop`, atau
-`./scripts/apichecker status`. Menu status menampilkan keadaan proses, PID,
-IP loopback, port aktif, dan health check. Script menjalankan aplikasi di
-background, menjalankan migrasi database sebelum start, menyimpan PID pada
-`data/apichecker.pid`, dan menulis output ke `data/apichecker.log`.
+Commands can also be executed directly, for example
+`./scripts/aria start`, `./scripts/aria stop`, `./scripts/aria restart`,
+`./scripts/aria status`, or `./scripts/aria logs`. Status includes health,
+PID, uptime, bind address, service mode, database, runtime paths, and an SSH
+tunnel example. The launcher applies database migrations before startup,
+stores the PID in `data/apichecker.pid`, and writes output to
+`data/apichecker.log`.
 
 ## Penggunaan aplikasi
 
@@ -129,7 +134,7 @@ Alamat listener harus terlihat sebagai `127.0.0.1:8000`, bukan `0.0.0.0:8000`.
 Untuk VPS, gunakan user service yang dibuat dari path repository saat ini:
 
 ```bash
-./scripts/apichecker stop
+./scripts/aria stop
 ./scripts/install-user-service
 systemctl --user status apichecker.service
 ```
@@ -245,6 +250,7 @@ Commit dan push tetap dilakukan secara eksplisit.
 | Version | Date | Ringkasan |
 | --- | --- | --- |
 <!-- version-history -->
+| `0.4.3` | 2026-06-19 | Perubahan branding aplikasi menjadi ARIA: API Reliability & Inference Analyzer |
 | `0.4.2` | 2026-06-19 | Katalog model lintas provider, histori inference, dashboard operasional, backup, scheduled retest, dan service controls |
 | `0.4.1` | 2026-06-19 | Pengujian akses model, progress inference, filter hasil, status monitoring, dan latency inference |
 | `0.4.0` | 2026-06-19 | Modal provider, label API key, interval baru, dan penyempurnaan dashboard |

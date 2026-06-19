@@ -7,7 +7,7 @@ MANAGER="${1:-launcher}"
 sleep 1
 case "$MANAGER" in
     launcher)
-        exec "$ROOT_DIR/scripts/apichecker" restart
+        exec "$ROOT_DIR/scripts/aria" restart
         ;;
     systemd-user)
         exec systemctl --user restart apichecker.service

@@ -24,7 +24,9 @@ def test_about_page_shows_current_product_information():
     response = about_page(request_for("/about"))
 
     assert f"v{APP_VERSION}".encode() in response.body
-    assert b"What API Checker does" in response.body
+    assert b"ARIA" in response.body
+    assert b"API Reliability &amp; Inference Analyzer" in response.body
+    assert b"What ARIA does" in response.body
     assert b"Recommended workflow" in response.body
     assert b"Load models" in response.body
     assert b"Test model access" in response.body
@@ -39,6 +41,8 @@ def test_about_page_shows_recent_release_history():
     response = about_page(request_for("/about"))
 
     assert b"Version history" in response.body
+    assert b"v0.4.3" in response.body
+    assert b"v0.4.2" in response.body
     assert b"v0.4.1" in response.body
     assert b"v0.4.0" in response.body
     assert b"v0.3.1" in response.body

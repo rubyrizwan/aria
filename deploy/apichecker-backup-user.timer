@@ -1,5 +1,5 @@
 [Unit]
-Description=Run API Checker backup daily
+Description=Run ARIA backup daily
 
 [Timer]
 OnCalendar=daily

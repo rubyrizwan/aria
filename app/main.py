@@ -94,7 +94,11 @@ async def lifespan(_: FastAPI):
     await scheduler.stop()
 
 
-app = FastAPI(title="API Checker", lifespan=lifespan)
+app = FastAPI(
+    title="ARIA",
+    description="API Reliability & Inference Analyzer",
+    lifespan=lifespan,
+)
 app.mount("/static", StaticFiles(directory=BASE_DIR / "static"), name="static")
 
 DbSession = Annotated[Session, Depends(get_db)]
@@ -106,6 +110,11 @@ AUTO_INFERENCE_INTERVAL_OPTIONS = {24, 72, 168}
 APP_VERSION = __version__
 RELEASE_DATE = datetime.strptime(__release_date__, "%Y-%m-%d").strftime("%d %B %Y")
 RELEASE_HISTORY = (
+    {
+        "version": "0.4.3",
+        "date": "19 June 2026",
+        "summary": "User-facing branding changed to ARIA: API Reliability & Inference Analyzer.",
+    },
     {
         "version": "0.4.2",
         "date": "19 June 2026",

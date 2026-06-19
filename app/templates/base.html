@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>{% block title %}API Checker{% endblock %}</title>
+  <title>{% block title %}ARIA{% endblock %}</title>
   <link rel="icon" href="{{ url_for('static', path='/favicon.svg') }}" type="image/svg+xml">
   {% block head %}{% endblock %}
   <link rel="stylesheet" href="{{ url_for('static', path='/app.css') }}?v={{ asset_version }}">
@@ -14,7 +14,7 @@
   <aside class="sidebar">
     <a class="brand" href="/">
       <span class="brand-mark"><i data-lucide="activity"></i></span>
-      <span>API Checker</span>
+      <span>ARIA</span>
     </a>
     <nav>
       <a href="/" class="{{ 'active' if path == '/' else '' }}">
@@ -42,7 +42,7 @@
         <i data-lucide="server"></i>
         <span><strong>{{ server_host }}:{{ server_port }}</strong><small>{{ service_manager|replace('-', ' ')|title }}</small></span>
       </div>
-      <form method="post" action="/system/restart" data-app-restart-form data-confirm-title="Restart API Checker?" data-confirm-message="The application will be unavailable briefly while the server process restarts." data-confirm-label="Restart application" {% if not restart_supported %}hidden{% endif %}>
+      <form method="post" action="/system/restart" data-app-restart-form data-confirm-title="Restart ARIA?" data-confirm-message="The application will be unavailable briefly while the server process restarts." data-confirm-label="Restart application" {% if not restart_supported %}hidden{% endif %}>
         <input type="hidden" name="restart_token" value="{{ restart_token }}">
         <button type="submit" title="Restart application"><i data-lucide="refresh-cw"></i><span>Restart</span></button>
       </form>

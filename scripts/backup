@@ -37,7 +37,7 @@ def prune_backups(destination: Path, keep: int) -> None:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Create an online API Checker backup.")
+    parser = argparse.ArgumentParser(description="Create an online ARIA backup.")
     parser.add_argument(
         "--destination",
         type=Path,
