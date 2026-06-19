@@ -1,36 +1,121 @@
 {% extends "base.html" %}
-{% block title %}About · API Checker{% endblock %}
+{% block title %}About · ARIA{% endblock %}
 {% block content %}
-<header class="page-header compact">
-  <div><p class="eyebrow">Information</p><h1>About API Checker</h1><p class="subtle">A lightweight dashboard for compatible AI API providers.</p></div>
+<header class="page-header about-header">
+  <div class="about-product">
+    <span class="about-product-mark"><i data-lucide="activity"></i></span>
+    <div>
+      <p class="eyebrow">Application information</p>
+      <div class="title-row"><h1>ARIA</h1><span class="release-badge">v{{ app_version }}</span></div>
+      <p class="subtle"><strong>API Reliability &amp; Inference Analyzer.</strong> A lightweight, self-hosted dashboard for validating AI API providers, discovering models, and monitoring inference access.</p>
+      <div class="about-tags">
+        <span><i data-lucide="server"></i>Self-hosted</span>
+        <span><i data-lucide="bot"></i>OpenAI compatible</span>
+        <span><i data-lucide="messages-square"></i>Anthropic compatible</span>
+      </div>
+    </div>
+  </div>
 </header>
+
 <section class="about-layout">
   <div class="about-main">
     <section class="about-section">
-      <h2>Application</h2>
-      <dl class="about-meta">
-        <div><dt>Name</dt><dd>API Checker</dd></div>
-        <div><dt>Version</dt><dd>{{ app_version }}</dd></div>
-        <div><dt>Released</dt><dd>{{ release_date }}</dd></div>
-        <div><dt>Author</dt><dd>Ruby Rizwan</dd></div>
-        <div><dt>Email</dt><dd><a class="text-link" href="mailto:rzwan182@gmail.com">rzwan182@gmail.com</a></dd></div>
-      </dl>
+      <div class="about-section-heading">
+        <span class="about-section-icon info"><i data-lucide="scan-search"></i></span>
+        <div><h2>What ARIA does</h2><p>Core tools for operating multiple compatible AI endpoints from one private dashboard.</p></div>
+      </div>
+      <div class="about-feature-list">
+        <div><i data-lucide="server-cog"></i><span><strong>Provider monitoring</strong><small>Track endpoint health, response latency, compatibility, and check history.</small></span></div>
+        <div><i data-lucide="boxes"></i><span><strong>Model discovery</strong><small>Load the current model catalog from OpenAI or Anthropic compatible endpoints.</small></span></div>
+        <div><i data-lucide="flask-conical"></i><span><strong>Inference access testing</strong><small>Test each supported model and distinguish available, forbidden, quota, timeout, and failed results.</small></span></div>
+        <div><i data-lucide="radio-tower"></i><span><strong>Automatic monitoring</strong><small>Run scheduled checks globally and configure a separate interval for every provider.</small></span></div>
+        <div><i data-lucide="key-round"></i><span><strong>Protected credentials</strong><small>Store API keys encrypted and reveal them only when explicitly requested.</small></span></div>
+      </div>
     </section>
+
     <section class="about-section">
-      <h2>Usage</h2>
-      <ol class="usage-list">
-        <li>Add a provider name, base URL, and optional API key.</li>
-        <li>API Checker detects OpenAI or Anthropic compatibility through the models endpoint.</li>
-        <li>Use Check now for an immediate check or enable automatic monitoring.</li>
-        <li>Review available models, inferred capabilities, latency, and check history.</li>
+      <div class="about-section-heading">
+        <span class="about-section-icon good"><i data-lucide="route"></i></span>
+        <div><h2>Recommended workflow</h2><p>A practical sequence for adding and validating a provider.</p></div>
+      </div>
+      <ol class="workflow-list">
+        <li><span>1</span><div><strong>Add a provider</strong><p>Enter a provider name, base URL, API key label, optional API key, timeout, and monitoring interval.</p></div></li>
+        <li><span>2</span><div><strong>Test the connection</strong><p>Verify the endpoint and credential before saving the provider configuration.</p></div></li>
+        <li><span>3</span><div><strong>Load models</strong><p>Detect compatibility and retrieve the models currently exposed by the provider.</p></div></li>
+        <li><span>4</span><div><strong>Test model access</strong><p>Send minimal inference requests to determine which models accept the registered credential.</p></div></li>
+        <li><span>5</span><div><strong>Review available models</strong><p>Use the Available Models menu to compare successful model access across providers.</p></div></li>
       </ol>
     </section>
+
+    <section class="about-section">
+      <div class="about-section-heading">
+        <span class="about-section-icon neutral"><i data-lucide="shield-check"></i></span>
+        <div><h2>Security and privacy</h2><p>Designed for private administration through a trusted host.</p></div>
+      </div>
+      <div class="security-list">
+        <div><i data-lucide="database-lock"></i><span>API keys are encrypted at rest using the configured master key.</span></div>
+        <div><i data-lucide="eye"></i><span>Credentials are decrypted only for provider requests or an explicit Show API key action.</span></div>
+        <div><i data-lucide="network"></i><span>The recommended deployment binds to localhost and is accessed through an SSH tunnel.</span></div>
+        <div class="warning"><i data-lucide="triangle-alert"></i><span>Model access tests send real inference requests and may consume provider quota or credit.</span></div>
+      </div>
+    </section>
+
+    <section class="about-section">
+      <div class="about-section-heading">
+        <span class="about-section-icon warning"><i data-lucide="history"></i></span>
+        <div><h2>Version history</h2><p>Recent application releases and their main changes.</p></div>
+      </div>
+      <div class="table-wrap about-release-table">
+        <table>
+          <thead><tr><th>Version</th><th>Released</th><th>Summary</th></tr></thead>
+          <tbody>
+          {% for release in release_history %}
+            <tr>
+              <td><span class="release-version {{ 'current' if release.version == app_version }}">v{{ release.version }}</span></td>
+              <td>{{ release.date }}</td>
+              <td>{{ release.summary }}</td>
+            </tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </section>
   </div>
-  <aside class="support-panel">
-    <i data-lucide="heart-handshake"></i>
-    <h2>Support development</h2>
-    <p>Donations help maintain and improve API Checker.</p>
-    <a class="button primary" href="https://saweria.co/rubydevara" target="_blank" rel="noopener noreferrer"><i data-lucide="external-link"></i>Donate via Saweria</a>
+
+  <aside class="about-sidebar">
+    <section class="about-side-panel">
+      <div class="about-section-heading">
+        <span class="about-section-icon info"><i data-lucide="monitor-cog"></i></span>
+        <div><h2>System profile</h2><p>Current application build.</p></div>
+      </div>
+      <dl class="about-meta">
+        <div><dt>Version</dt><dd>v{{ app_version }}</dd></div>
+        <div><dt>Released</dt><dd>{{ release_date }}</dd></div>
+        <div><dt>Backend</dt><dd>FastAPI</dd></div>
+        <div><dt>Database</dt><dd>SQLite</dd></div>
+        <div><dt>Table limit</dt><dd>30 rows</dd></div>
+        <div><dt>Access</dt><dd>Localhost / SSH tunnel</dd></div>
+      </dl>
+    </section>
+
+    <section class="about-side-panel">
+      <div class="about-section-heading">
+        <span class="about-section-icon neutral"><i data-lucide="user-round"></i></span>
+        <div><h2>Author</h2><p>Application maintainer.</p></div>
+      </div>
+      <div class="author-profile">
+        <span class="author-avatar">RR</span>
+        <div><strong>Ruby Rizwan</strong><a href="mailto:rzwan182@gmail.com">rzwan182@gmail.com</a></div>
+      </div>
+      <a class="button secondary" href="mailto:rzwan182@gmail.com"><i data-lucide="mail"></i>Send email</a>
+    </section>
+
+    <section class="about-side-panel support-panel">
+      <span class="about-section-icon good"><i data-lucide="heart-handshake"></i></span>
+      <h2>Support development</h2>
+      <p>Donations help maintain the application and support further development.</p>
+      <a class="button primary" href="https://saweria.co/rubydevara" target="_blank" rel="noopener noreferrer"><i data-lucide="external-link"></i>Donate via Saweria</a>
+    </section>
   </aside>
 </section>
 {% endblock %}

@@ -1,0 +1,20 @@
+[Unit]
+Description=ARIA dashboard
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=__APP_DIR__
+EnvironmentFile=__APP_DIR__/.env
+Environment=APICHECKER_SERVICE_MANAGER=systemd-user
+ExecStartPre=__APP_DIR__/.venv/bin/alembic upgrade head
+ExecStart=__APP_DIR__/.venv/bin/python -m app
+Restart=always
+RestartSec=3
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=default.target

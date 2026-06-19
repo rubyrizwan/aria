@@ -9,7 +9,7 @@ from app.config import settings
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Run API Checker on the loopback interface.")
+    parser = argparse.ArgumentParser(description="Run ARIA on the loopback interface.")
     parser.add_argument(
         "command",
         nargs="?",

@@ -1,11 +1,13 @@
-# API Checker
+# ARIA
+
+**API Reliability & Inference Analyzer**
 
 Dashboard ringan untuk mendeteksi endpoint yang kompatibel dengan OpenAI atau Anthropic,
 memeriksa API key, dan mengambil daftar model secara berkala. Aplikasi berjalan sebagai
 satu proses FastAPI, menyimpan data di SQLite, dan mengenkripsi API key sebelum
 menyimpannya.
 
-Versi saat ini: **0.4.1**. Fitur token usage belum termasuk dalam versi ini.
+Versi saat ini: **0.4.3**. Fitur token usage belum termasuk dalam versi ini.
 
 ## Fitur
 
@@ -19,12 +21,15 @@ Versi saat ini: **0.4.1**. Fitur token usage belum termasuk dalam versi ini.
 - Toggle monitoring per provider dan monitoring otomatis global
 - Pemeriksaan manual menggunakan tombol `Load models`
 - Pengujian akses inference per model dengan progress dan ringkasan hasil
+- Katalog Available Models lintas provider dan histori inference
+- Scheduled inference retest opsional dengan interval 24 jam, 3 hari, atau 7 hari
 - Halaman Settings dan About
 - API key terenkripsi dengan Fernet
 - Retensi histori otomatis, default 30 hari
 - Pengaturan global untuk mengaktifkan atau menonaktifkan monitoring otomatis
 - UI responsif tanpa dependency frontend dari CDN
 - Server entrypoint selalu bind ke `127.0.0.1`
+- Backup SQLite online dan dukungan service `systemd --user`
 
 ## Instalasi
 
@@ -73,35 +78,39 @@ Jangan menjalankan lebih dari satu worker karena scheduler berada di proses web 
 Jalankan satu script pengelola:
 
 ```bash
-./scripts/apichecker
+./scripts/aria
 ```
 
-Script akan menampilkan pilihan:
+The launcher displays these options:
 
-1. Start
-2. Stop
-3. Status
-4. Help
-5. Exit
+1. Start ARIA
+2. Stop ARIA
+3. Restart ARIA
+4. Show status
+5. View logs
+6. Help
+7. Exit
 
-Perintah juga dapat diberikan langsung, misalnya
-`./scripts/apichecker start`, `./scripts/apichecker stop`, atau
-`./scripts/apichecker status`. Menu status menampilkan keadaan proses, PID,
-IP loopback, port aktif, dan health check. Script menjalankan aplikasi di
-background, menjalankan migrasi database sebelum start, menyimpan PID pada
-`data/apichecker.pid`, dan menulis output ke `data/apichecker.log`.
+Commands can also be executed directly, for example
+`./scripts/aria start`, `./scripts/aria stop`, `./scripts/aria restart`,
+`./scripts/aria status`, or `./scripts/aria logs`. Status includes health,
+PID, uptime, bind address, service mode, database, runtime paths, and an SSH
+tunnel example. The launcher applies database migrations before startup,
+stores the PID in `data/apichecker.pid`, and writes output to
+`data/apichecker.log`.
 
 ## Penggunaan aplikasi
 
 1. Buka menu **Providers** dan pilih **Add provider**.
 2. Masukkan nama provider, base URL, dan API key jika diperlukan.
-3. Jalankan **Check now** atau biarkan scheduler memeriksa sesuai interval.
+3. Jalankan **Load models** atau biarkan scheduler memeriksa sesuai interval.
 4. Buka detail provider untuk melihat compatibility, model, capability, latency, dan histori.
 5. Gunakan checkbox pada daftar provider untuk mengaktifkan atau menonaktifkan provider.
-6. Gunakan menu **Settings** untuk mengatur monitoring otomatis global.
+6. Gunakan menu **Settings** untuk mengatur monitoring otomatis global dan scheduled inference retest.
 
 Saat monitoring otomatis global dimatikan, pemeriksaan terjadwal berhenti tetapi
-`Check now` tetap dapat digunakan.
+`Load models` tetap dapat digunakan. Scheduled inference retest default-nya nonaktif
+karena mengirim request inference nyata dan dapat memakai kuota atau credit provider.
 
 ## Akses melalui SSH tunnel
 
@@ -122,35 +131,65 @@ Alamat listener harus terlihat sebagai `127.0.0.1:8000`, bukan `0.0.0.0:8000`.
 
 ## Menjalankan dengan systemd
 
-Salin dan sesuaikan [`deploy/apichecker.service`](deploy/apichecker.service), terutama nilai
-`User`, `WorkingDirectory`, dan path pada `ExecStart`.
+Untuk VPS, gunakan user service yang dibuat dari path repository saat ini:
 
 ```bash
-sudo cp deploy/apichecker.service /etc/systemd/system/apichecker.service
-sudo systemctl daemon-reload
-sudo systemctl enable --now apichecker
-sudo systemctl status apichecker
+./scripts/aria stop
+./scripts/install-user-service
+systemctl --user status apichecker.service
 ```
 
-Log:
+Installer juga mengaktifkan backup harian dengan retensi 14 backup. Agar user service tetap
+aktif setelah logout dan otomatis berjalan setelah reboot, administrator VPS dapat menjalankan:
 
 ```bash
-journalctl -u apichecker -f
+sudo loginctl enable-linger "$USER"
 ```
+
+Perintah operasional:
+
+```bash
+systemctl --user restart apichecker.service
+systemctl --user stop apichecker.service
+journalctl --user -u apichecker.service -f
+systemctl --user list-timers apichecker-backup.timer
+```
+
+Tombol Restart di sidebar menggunakan service manager ini jika
+`APICHECKER_SERVICE_MANAGER=systemd-user`. Request restart dilindungi token yang diturunkan
+dari master key. Unit system-level legacy pada `deploy/apichecker.service` menonaktifkan
+tombol ini agar tidak membutuhkan aturan `sudo` tambahan.
 
 ## Backup dan restore
 
-Hentikan service sesaat agar file database konsisten:
+Backup SQLite konsisten dapat dibuat saat aplikasi tetap berjalan:
 
 ```bash
-sudo systemctl stop apichecker
-cp data/apichecker.db /lokasi-backup/apichecker.db
-cp .env /lokasi-backup/apichecker.env
-sudo systemctl start apichecker
+./scripts/backup
+./scripts/backup --destination /lokasi-backup --keep 30
 ```
 
-Untuk restore, hentikan service, kembalikan kedua file tersebut, pastikan `.env` memiliki
-permission `600`, lalu jalankan service kembali.
+Setiap backup berisi `apichecker.db` dan `apichecker.env`. File environment wajib disimpan
+bersama database karena berisi master key untuk membuka API key terenkripsi.
+
+Untuk restore:
+
+```bash
+systemctl --user stop apichecker.service
+cp /lokasi-backup/apichecker.db data/apichecker.db
+cp /lokasi-backup/apichecker.env .env
+chmod 600 .env data/apichecker.db
+systemctl --user start apichecker.service
+```
+
+Jika tetap memakai launcher, pasang rotasi `data/apichecker.log`:
+
+```bash
+./scripts/install-logrotate
+```
+
+Deployment `systemd --user` menulis log ke journal sehingga tidak membutuhkan logrotate
+untuk log aplikasi.
 
 ## Pengujian
 
@@ -211,6 +250,8 @@ Commit dan push tetap dilakukan secara eksplisit.
 | Version | Date | Ringkasan |
 | --- | --- | --- |
 <!-- version-history -->
+| `0.4.3` | 2026-06-19 | Perubahan branding aplikasi menjadi ARIA: API Reliability & Inference Analyzer |
+| `0.4.2` | 2026-06-19 | Katalog model lintas provider, histori inference, dashboard operasional, backup, scheduled retest, dan service controls |
 | `0.4.1` | 2026-06-19 | Pengujian akses model, progress inference, filter hasil, status monitoring, dan latency inference |
 | `0.4.0` | 2026-06-19 | Modal provider, label API key, interval baru, dan penyempurnaan dashboard |
 | `0.3.1` | 2026-06-18 | Perbaikan kompatibilitas database pada revision Alembic `0005` |
@@ -228,6 +269,7 @@ Detail lengkap tersedia di [CHANGELOG.md](CHANGELOG.md).
 | `APICHECKER_MASTER_KEY` | wajib | Kunci Fernet untuk enkripsi API key |
 | `APICHECKER_DATABASE_URL` | `sqlite:///./data/apichecker.db` | Lokasi database |
 | `APICHECKER_PORT` | `8000` | Port loopback server |
+| `APICHECKER_SERVICE_MANAGER` | `launcher` | Mekanisme restart: `launcher` atau `systemd-user` |
 | `APICHECKER_HISTORY_DAYS` | `30` | Retensi histori |
 | `APICHECKER_MAX_CONCURRENT_CHECKS` | `5` | Batas pemeriksaan paralel |
 | `APICHECKER_SCHEDULER_POLL_SECONDS` | `10` | Interval polling scheduler |

@@ -1,5 +1,5 @@
 [Unit]
-Description=API Checker dashboard
+Description=ARIA dashboard
 After=network-online.target
 Wants=network-online.target
 
@@ -9,8 +9,10 @@ User=apichecker
 Group=apichecker
 WorkingDirectory=/opt/apichecker
 EnvironmentFile=/opt/apichecker/.env
+Environment=APICHECKER_SERVICE_MANAGER=disabled
+ExecStartPre=/opt/apichecker/.venv/bin/alembic upgrade head
 ExecStart=/opt/apichecker/.venv/bin/python -m app
-Restart=on-failure
+Restart=always
 RestartSec=5
 UMask=0077
 NoNewPrivileges=true

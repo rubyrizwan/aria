@@ -11,6 +11,7 @@ __pycache__/
 *.log
 *.pid
 data/
+backups/
 .coverage
 htmlcov/
 .ruff_cache/

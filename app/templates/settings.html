@@ -1,24 +1,145 @@
 {% extends "base.html" %}
-{% block title %}Settings · API Checker{% endblock %}
+{% block title %}Settings · ARIA{% endblock %}
 {% block content %}
 <header class="page-header compact">
-  <div><p class="eyebrow">Application</p><h1>Settings</h1><p class="subtle">Global behavior for this API Checker instance.</p></div>
+  <div><p class="eyebrow">Application</p><h1>Settings</h1><p class="subtle">Configure monitoring, performance, provider defaults, table density, and stored data.</p></div>
 </header>
 {% if saved %}
-<div class="alert success"><i data-lucide="circle-check"></i><div><strong>Settings saved</strong><p>The scheduler will use the updated configuration on its next cycle.</p></div></div>
+<div class="alert success"><i data-lucide="circle-check"></i><div><strong>Settings saved</strong><p>Runtime services will use the updated values immediately.</p></div></div>
 {% endif %}
+{% if maintenance_message %}
+<div class="alert success"><i data-lucide="database-check"></i><div><strong>Maintenance completed</strong><p>{{ maintenance_message }}</p></div></div>
+{% endif %}
+{% if errors %}
+<div class="alert error"><i data-lucide="circle-alert"></i><div><strong>Settings are invalid</strong>{% for error in errors %}<p>{{ error }}</p>{% endfor %}</div></div>
+{% endif %}
+
 <form class="settings-form" method="post">
-  <section class="settings-section">
-    <div class="settings-copy">
-      <h2>Automatic monitoring</h2>
-      <p>Run scheduled provider checks using each provider's configured interval.</p>
+  <section class="settings-panel">
+    <div class="settings-panel-heading">
+      <span class="settings-icon good"><i data-lucide="radio-tower"></i></span>
+      <div><h2>Monitoring</h2><p>Control scheduled checks and the amount of history retained.</p></div>
     </div>
-    <label class="settings-toggle">
-      <input type="checkbox" name="auto_monitoring" {{ 'checked' if auto_monitoring }}>
-      <span class="toggle" aria-hidden="true"></span>
-      <span><strong>{{ 'Enabled' if auto_monitoring else 'Disabled' }}</strong><small>Manual Check now actions remain available.</small></span>
-    </label>
+    <div class="settings-rows">
+      <div class="settings-row">
+        <div class="settings-copy"><strong>Automatic monitoring</strong><p>Run scheduled provider checks using each provider's configured interval.</p></div>
+        <label class="settings-toggle">
+          <input type="checkbox" name="auto_monitoring" {{ 'checked' if preferences.auto_monitoring }}>
+          <span class="toggle" aria-hidden="true"></span>
+          <span><strong>{{ 'Enabled' if preferences.auto_monitoring else 'Disabled' }}</strong><small>Manual Load models remains available.</small></span>
+        </label>
+      </div>
+      <div class="settings-row">
+        <div class="settings-copy"><strong>Scheduled inference retest</strong><p>Retest every loaded model periodically. This sends real inference requests and may use provider quota.</p></div>
+        <label class="settings-toggle">
+          <input type="checkbox" name="auto_inference" {{ 'checked' if preferences.auto_inference }}>
+          <span class="toggle" aria-hidden="true"></span>
+          <span><strong>{{ 'Enabled' if preferences.auto_inference else 'Disabled' }}</strong><small>Requires Automatic monitoring.</small></span>
+        </label>
+      </div>
+      <div class="settings-row">
+        <label class="settings-copy" for="auto-inference-interval"><strong>Inference retest interval</strong><p>Minimum age before a provider's loaded models are tested again.</p></label>
+        <select id="auto-inference-interval" name="auto_inference_interval_hours">
+          <option value="24" {{ 'selected' if preferences.auto_inference_interval_hours == 24 }}>24 hours</option>
+          <option value="72" {{ 'selected' if preferences.auto_inference_interval_hours == 72 }}>3 days</option>
+          <option value="168" {{ 'selected' if preferences.auto_inference_interval_hours == 168 }}>7 days</option>
+        </select>
+      </div>
+      <div class="settings-row">
+        <label class="settings-copy" for="history-days"><strong>History retention</strong><p>Expired provider check and inference records are removed by the daily cleanup process.</p></label>
+        <select id="history-days" name="history_days">
+          {% for days in [7,14,30,60,90] %}<option value="{{ days }}" {{ 'selected' if preferences.history_days == days }}>{{ days }} days</option>{% endfor %}
+        </select>
+      </div>
+    </div>
   </section>
-  <div class="form-actions"><button class="button primary" type="submit" data-loading-label="Saving..."><i data-lucide="save"></i>Save settings</button></div>
+
+  <section class="settings-panel">
+    <div class="settings-panel-heading">
+      <span class="settings-icon info"><i data-lucide="gauge"></i></span>
+      <div><h2>Performance</h2><p>Limit parallel network requests to match provider and VPS capacity.</p></div>
+    </div>
+    <div class="settings-rows two-column">
+      <div class="settings-row">
+        <label class="settings-copy" for="concurrent-checks"><strong>Concurrent provider checks</strong><p>Maximum scheduled provider checks running at the same time.</p></label>
+        <select id="concurrent-checks" name="concurrent_checks">
+          {% for value in [1,3,5,10] %}<option value="{{ value }}" {{ 'selected' if preferences.concurrent_checks == value }}>{{ value }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="settings-row">
+        <label class="settings-copy" for="concurrent-inference"><strong>Concurrent inference tests</strong><p>Maximum model access requests running within one inference job.</p></label>
+        <select id="concurrent-inference" name="concurrent_inference">
+          {% for value in [1,3,5,10] %}<option value="{{ value }}" {{ 'selected' if preferences.concurrent_inference == value }}>{{ value }}</option>{% endfor %}
+        </select>
+      </div>
+    </div>
+  </section>
+
+  <section class="settings-panel">
+    <div class="settings-panel-heading">
+      <span class="settings-icon neutral"><i data-lucide="server-cog"></i></span>
+      <div><h2>New provider defaults</h2><p>Initial values used when opening the Add API provider form.</p></div>
+    </div>
+    <div class="settings-rows two-column">
+      <div class="settings-row">
+        <label class="settings-copy" for="default-timeout"><strong>Request timeout</strong><p>Default timeout for provider and inference requests.</p></label>
+        <div class="settings-input-suffix"><input id="default-timeout" name="default_timeout_seconds" type="number" min="1" max="60" value="{{ preferences.default_timeout_seconds }}"><span>seconds</span></div>
+      </div>
+      <div class="settings-row">
+        <label class="settings-copy" for="default-interval"><strong>Check interval</strong><p>Default automatic monitoring interval for new providers.</p></label>
+        <select id="default-interval" name="default_interval_minutes">
+          {% for value in [5,15,30,60,360] %}<option value="{{ value }}" {{ 'selected' if preferences.default_interval_minutes == value }}>{{ value }} minutes</option>{% endfor %}
+        </select>
+      </div>
+      <div class="settings-row full">
+        <div class="settings-copy"><strong>Monitoring enabled by default</strong><p>Enable scheduled monitoring automatically when a provider is first created.</p></div>
+        <label class="settings-toggle">
+          <input type="checkbox" name="default_monitoring" {{ 'checked' if preferences.default_monitoring }}>
+          <span class="toggle" aria-hidden="true"></span>
+          <span><strong>{{ 'Enabled' if preferences.default_monitoring else 'Disabled' }}</strong><small>Existing providers are not changed.</small></span>
+        </label>
+      </div>
+    </div>
+  </section>
+
+  <section class="settings-panel">
+    <div class="settings-panel-heading">
+      <span class="settings-icon warning"><i data-lucide="table-properties"></i></span>
+      <div><h2>Interface</h2><p>Adjust the amount of data shown on paginated tables.</p></div>
+    </div>
+    <div class="settings-rows">
+      <div class="settings-row">
+        <label class="settings-copy" for="table-page-size"><strong>Rows per table</strong><p>Applied to dashboard providers, provider lists, available models, model results, and check history.</p></label>
+        <select id="table-page-size" name="table_page_size">
+          {% for value in [15,30,50,100] %}<option value="{{ value }}" {{ 'selected' if preferences.table_page_size == value }}>{{ value }} rows</option>{% endfor %}
+        </select>
+      </div>
+    </div>
+  </section>
+
+  <div class="form-actions settings-save"><button class="button primary" type="submit" data-loading-label="Saving..."><i data-lucide="save"></i>Save settings</button></div>
 </form>
+
+<section class="settings-panel maintenance-panel">
+  <div class="settings-panel-heading">
+    <span class="settings-icon bad"><i data-lucide="database"></i></span>
+    <div><h2>Data maintenance</h2><p>Review and clean stored monitoring data.</p></div>
+  </div>
+  <div class="maintenance-grid">
+    <article>
+      <div class="maintenance-count"><i data-lucide="history"></i><span><strong>{{ counts.checks }}</strong><small>check history rows</small></span></div>
+      <p>Delete provider check and inference records older than the selected {{ preferences.history_days }}-day retention period.</p>
+      <form method="post" action="/settings/prune-history" data-confirm-title="Prune expired history?" data-confirm-message="Provider check and inference records older than the configured retention period will be permanently deleted." data-confirm-label="Prune history">
+        <button class="button secondary" type="submit" data-loading-label="Pruning..."><i data-lucide="trash-2"></i>Prune history now</button>
+      </form>
+    </article>
+    <article>
+      <div class="maintenance-count"><i data-lucide="flask-conical"></i><span><strong>{{ counts.inference }}</strong><small>inference result rows</small></span></div>
+      <p>Clear all saved model access results and provider inference latency values.</p>
+      <form method="post" action="/settings/clear-inference" data-confirm-title="Clear all inference results?" data-confirm-message="All model access statuses and stored inference latency values will be permanently removed." data-confirm-label="Clear inference results">
+        <button class="button danger" type="submit" data-loading-label="Clearing..."><i data-lucide="trash-2"></i>Clear inference results</button>
+      </form>
+    </article>
+  </div>
+</section>
 {% endblock %}

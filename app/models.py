@@ -67,6 +67,9 @@ class Account(Base):
     inference_results: Mapped[list["ModelInferenceResult"]] = relationship(
         back_populates="account", cascade="all, delete-orphan"
     )
+    inference_history: Mapped[list["ModelInferenceHistory"]] = relationship(
+        back_populates="account", cascade="all, delete-orphan"
+    )
 
     @property
     def model_details(self) -> list[dict]:
@@ -151,6 +154,26 @@ class ModelInferenceResult(Base):
     )
 
     account: Mapped[Account] = relationship(back_populates="inference_results")
+
+
+class ModelInferenceHistory(Base):
+    __tablename__ = "model_inference_history"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    account_id: Mapped[int] = mapped_column(
+        ForeignKey("accounts.id", ondelete="CASCADE"), index=True
+    )
+    model_id: Mapped[str] = mapped_column(String(255), index=True)
+    api_key_label: Mapped[str] = mapped_column(String(120), default="Default")
+    status: Mapped[str] = mapped_column(String(30), index=True)
+    http_status: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    latency_ms: Mapped[float | None] = mapped_column(Float, nullable=True)
+    error_message: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    checked_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utcnow, index=True
+    )
+
+    account: Mapped[Account] = relationship(back_populates="inference_history")
 
 
 class AppSetting(Base):

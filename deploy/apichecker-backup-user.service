@@ -1,0 +1,11 @@
+[Unit]
+Description=Backup ARIA data
+
+[Service]
+Type=oneshot
+WorkingDirectory=__APP_DIR__
+EnvironmentFile=__APP_DIR__/.env
+ExecStart=__APP_DIR__/scripts/backup --destination __APP_DIR__/backups --keep 14
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true

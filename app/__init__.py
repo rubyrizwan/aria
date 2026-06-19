@@ -1,1 +1,1 @@
-"""API Checker application."""
+"""ARIA application."""

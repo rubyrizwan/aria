@@ -74,7 +74,7 @@ def main() -> None:
     )
 
     changelog = CHANGELOG.read_text()
-    marker = "All notable changes to API Checker are documented here.\n"
+    marker = "All notable changes to ARIA are documented here.\n"
     entry = (
         f"\n## [{version}] - {release_date}\n\n"
         "### Changed\n\n"

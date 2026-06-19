@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block title %}{{ account.name }} · API Checker{% endblock %}
+{% block title %}{{ account.name }} · ARIA{% endblock %}
 {% block content %}
 <header class="page-header">
   <div>
@@ -38,6 +38,12 @@
 {% if latest_check and latest_check.error_message %}
 <div class="alert error"><i data-lucide="triangle-alert"></i><div><strong>Latest error</strong><p>{{ latest_check.error_message }}</p></div></div>
 {% endif %}
+<nav class="detail-tabs" aria-label="Provider data views">
+  <a class="{{ 'active' if active_view == 'models' }}" href="/accounts/{{ account.id }}?view=models"><i data-lucide="boxes"></i>Available Models <span>{{ account.models|length }}</span></a>
+  <a class="{{ 'active' if active_view == 'inference' }}" href="/accounts/{{ account.id }}?view=inference"><i data-lucide="flask-conical"></i>Inference History <span>{{ inference_history_total }}</span></a>
+  <a class="{{ 'active' if active_view == 'checks' }}" href="/accounts/{{ account.id }}?view=checks"><i data-lucide="activity"></i>Provider Checks <span>{{ pager.total }}</span></a>
+</nav>
+{% if active_view == 'models' %}
 <section class="section">
   <div class="section-heading">
     <div><h2>Available models</h2><p>{{ account.models_endpoint or 'Models endpoint has not been detected.' }}</p></div>
@@ -135,12 +141,58 @@
     </div>
   </section>
 </div>
+{% elif active_view == 'inference' %}
 <section class="section">
-  <div class="section-heading"><div><h2>Check history</h2><p>Compatibility checks, 30 rows per page.</p></div></div>
+  <div class="section-heading">
+    <div><h2>Inference history</h2><p>Every model access request made with this provider credential.</p></div>
+    <div class="inference-history-metrics">
+      <span><strong>{{ inference_history_total }}</strong>Total tests</span>
+      <span class="good"><strong>{{ inference_history_success ~ '%' if inference_history_success is not none else '—' }}</strong>Success rate</span>
+    </div>
+  </div>
+  <form class="model-search" method="get">
+    <input type="hidden" name="view" value="inference">
+    <label class="search"><i data-lucide="search"></i><input name="inference_q" value="{{ inference_history_query }}" placeholder="Search model name"></label>
+    <select name="inference_status" aria-label="Filter inference history status">
+      <option value="all">All statuses</option>
+      {% for status in inference_status_order if status != 'not_tested' %}
+      <option value="{{ status }}" {{ 'selected' if inference_history_status == status }}>{{ status|replace('_', ' ')|capitalize }}</option>
+      {% endfor %}
+    </select>
+    <button class="button secondary" type="submit" data-loading-label="Filtering...">Apply</button>
+    {% if inference_history_query or inference_history_status != 'all' %}<a class="button secondary" href="/accounts/{{ account.id }}?view=inference">Clear</a>{% endif %}
+  </form>
+  <div class="table-wrap">
+    <table class="inference-history-table">
+      <thead><tr><th>#</th><th>Time</th><th>Model</th><th>API key label</th><th>Status</th><th>HTTP</th><th>Latency</th><th>Result</th></tr></thead>
+      <tbody>
+      {% for result in inference_history %}
+        <tr>
+          <td class="row-number">{{ inference_history_pager.offset + loop.index }}</td>
+          <td>{{ result.checked_at|datetime }}</td>
+          <td><code class="model-name">{{ result.model_id }}</code></td>
+          <td>{{ result.api_key_label }}</td>
+          <td><span class="inference-status {{ result.status }}"><i data-lucide="{{ 'circle-check' if result.status == 'available' else 'clock-alert' if result.status in ['timeout', 'quota_exceeded'] else 'circle-help' if result.status == 'unsupported' else 'circle-x' }}"></i>{{ result.status|replace('_', ' ')|capitalize }}</span></td>
+          <td>{{ result.http_status or '—' }}</td>
+          <td>{{ result.latency_ms|round|int ~ ' ms' if result.latency_ms is not none else '—' }}</td>
+          <td class="inference-message">{{ result.error_message or 'Inference completed successfully' }}</td>
+        </tr>
+      {% else %}
+        <tr><td colspan="8"><div class="empty">No inference history matches this filter.</div></td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% with pager=inference_history_pager %}{% include "_pagination.html" %}{% endwith %}
+</section>
+{% else %}
+<section class="section">
+  <div class="section-heading"><div><h2>Provider checks</h2><p>Endpoint compatibility and model discovery history.</p></div></div>
   <div class="table-wrap"><table><thead><tr><th>Time</th><th>Status</th><th>Type</th><th>Models</th><th>HTTP</th><th>Latency</th><th>Result</th></tr></thead><tbody>
   {% for check in checks %}<tr><td>{{ check.checked_at|datetime }}</td><td><span class="badge {{ check.status }}">{{ check.status|capitalize }}</span></td><td>{{ check.provider_type|capitalize }}</td><td>{{ check.model_count }}</td><td>{{ check.http_status or '—' }}</td><td>{{ check.latency_ms|round|int ~ ' ms' if check.latency_ms is not none else '—' }}</td><td>{{ check.error_message or 'Model list detected successfully' }}</td></tr>
   {% else %}<tr><td colspan="7"><div class="empty">No checks recorded yet.</div></td></tr>{% endfor %}
   </tbody></table></div>
   {% include "_pagination.html" %}
 </section>
+{% endif %}
 {% endblock %}

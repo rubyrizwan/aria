@@ -32,6 +32,7 @@ def test_provider_summary_reveals_key_without_cache():
         payload = json.loads(response.body)
 
     assert payload == {
+        "id": account.id,
         "name": "Provider",
         "base_url": "https://example.com/v1",
         "api_key_label": "Paid",
@@ -40,6 +41,11 @@ def test_provider_summary_reveals_key_without_cache():
         "model_count": 2,
         "compatibility": "openai",
         "status": "healthy",
+        "monitoring": "enabled",
+        "interval_minutes": 60,
+        "last_checked": "Never",
+        "last_latency_ms": None,
+        "inference_summary": {},
     }
     assert response.headers["cache-control"] == "no-store"
 

@@ -1,0 +1,10 @@
+__APP_DIR__/data/apichecker.log {
+    weekly
+    rotate 8
+    compress
+    delaycompress
+    missingok
+    notifempty
+    copytruncate
+    su __USER__ __GROUP__
+}

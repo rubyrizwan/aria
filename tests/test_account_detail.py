@@ -17,7 +17,7 @@ from app.main import (
     inference_job_status,
     test_account_models as start_account_model_tests,
 )
-from app.models import Account, ModelInferenceResult
+from app.models import Account, ModelInferenceHistory, ModelInferenceResult
 from app.security import encrypt_secret
 
 
@@ -73,6 +73,8 @@ def test_account_detail_shows_notes_and_header_delete():
     assert b"Active" in response.body
     assert b"Every 60 minutes" in response.body
     assert b"Provider check" in response.body
+    assert b"Inference History" in response.body
+    assert b"Provider Checks" in response.body
     assert b'<button class="button orange" disabled' in response.body
     template = (
         Path(__file__).resolve().parents[1] / "app/templates/account_detail.html"
@@ -81,6 +83,55 @@ def test_account_detail_shows_notes_and_header_delete():
     assert "<th>Display name</th>" not in models_section
     assert "<th>Owner</th>" not in models_section
     assert "<th>Latency</th>" not in models_section
+
+
+def test_account_detail_inference_history_view():
+    engine = create_engine("sqlite:///:memory:")
+    Base.metadata.create_all(engine)
+    with Session(engine, expire_on_commit=False) as session:
+        account = Account(
+            name="Provider",
+            endpoint_url="https://example.com",
+            api_key_label="Paid",
+            encrypted_api_key=encrypt_secret("key"),
+        )
+        session.add(account)
+        session.flush()
+        session.add_all(
+            [
+                ModelInferenceHistory(
+                    account_id=account.id,
+                    model_id="model-a",
+                    api_key_label="Paid",
+                    status="available",
+                    http_status=200,
+                    latency_ms=120,
+                ),
+                ModelInferenceHistory(
+                    account_id=account.id,
+                    model_id="model-b",
+                    api_key_label="Paid",
+                    status="forbidden",
+                    http_status=403,
+                    error_message="No access",
+                ),
+            ]
+        )
+        session.commit()
+
+        response = account_detail(
+            request_for(f"/accounts/{account.id}"),
+            account.id,
+            session,
+            view="inference",
+        )
+
+    assert b"Inference history" in response.body
+    assert b"model-a" in response.body
+    assert b"model-b" in response.body
+    assert b"Paid" in response.body
+    assert b"50.0%" in response.body
+    assert b"Provider checks" not in response.body
 
 
 def test_account_api_key_reveals_secret_without_cache():

@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 
 from app.checker import InferenceResult
 from app.database import Base
-from app.models import Account, ModelInferenceResult
+from app.models import Account, ModelInferenceHistory, ModelInferenceResult
 from app.security import encrypt_secret
 from app.services import save_inference_result, update_inference_latency
 
@@ -39,6 +39,10 @@ def test_inference_result_is_updated_per_model():
         assert len(rows) == 1
         assert rows[0].status == "quota_exceeded"
         assert rows[0].http_status == 429
+        history = session.query(ModelInferenceHistory).all()
+        assert len(history) == 2
+        assert [row.status for row in history] == ["available", "quota_exceeded"]
+        assert history[0].api_key_label == "Default"
 
 
 def test_inference_latency_uses_only_requests_with_latency():
