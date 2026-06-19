@@ -1,0 +1,127 @@
+{% extends "base.html" %}
+{% block title %}Available Models · API Checker{% endblock %}
+{% block content %}
+<header class="page-header">
+  <div>
+    <p class="eyebrow">Inference access</p>
+    <div class="title-row"><h1>Available models</h1><span class="provider-total">{{ model_total }} total</span></div>
+    <p class="subtle">Compare successful model access, provider coverage, capabilities, latency, and result freshness.</p>
+  </div>
+</header>
+
+<section class="stat-grid five model-stats">
+  <article class="stat"><div class="stat-icon info"><i data-lucide="boxes"></i></div><div><span>Unique models</span><strong>{{ stats.models }}</strong></div></article>
+  <article class="stat"><div class="stat-icon good"><i data-lucide="server"></i></div><div><span>Providers</span><strong>{{ stats.providers }}</strong></div></article>
+  <article class="stat"><div class="stat-icon neutral"><i data-lucide="layers-3"></i></div><div><span>Multi-provider</span><strong>{{ stats.multi_provider }}</strong></div></article>
+  <article class="stat"><div class="stat-icon info"><i data-lucide="timer"></i></div><div><span>Avg. best latency</span><strong class="stat-text">{{ stats.average_best_latency|round|int ~ ' ms' if stats.average_best_latency is not none else '—' }}</strong></div></article>
+  <article class="stat"><div class="stat-icon neutral"><i data-lucide="clock-3"></i></div><div><span>Latest inference</span><strong class="stat-text">{{ stats.latest_tested|datetime if stats.latest_tested else 'Never' }}</strong></div></article>
+</section>
+
+<form class="model-catalog-filters" method="get">
+  <label class="search"><i data-lucide="search"></i><input name="q" value="{{ query }}" placeholder="Search model name"></label>
+  <select name="provider" aria-label="Filter provider">
+    <option value="0">All providers</option>
+    {% for item in providers %}<option value="{{ item.id }}" {{ 'selected' if filters.provider|int == item.id }}>{{ item.name }}</option>{% endfor %}
+  </select>
+  <select name="compatibility" aria-label="Filter compatibility">
+    <option value="all">All compatibility</option>
+    <option value="openai" {{ 'selected' if filters.compatibility == 'openai' }}>OpenAI</option>
+    <option value="anthropic" {{ 'selected' if filters.compatibility == 'anthropic' }}>Anthropic</option>
+  </select>
+  <select name="capability" aria-label="Filter capability">
+    <option value="all">All capabilities</option>
+    <option value="vision" {{ 'selected' if filters.capability == 'vision' }}>Vision</option>
+    <option value="reasoning" {{ 'selected' if filters.capability == 'reasoning' }}>Reasoning</option>
+    <option value="tools" {{ 'selected' if filters.capability == 'tools' }}>Tools</option>
+    <option value="audio" {{ 'selected' if filters.capability == 'audio' }}>Audio</option>
+  </select>
+  <select name="availability" aria-label="Filter provider coverage">
+    <option value="all">Any coverage</option>
+    <option value="multiple" {{ 'selected' if filters.availability == 'multiple' }}>Multiple providers</option>
+    <option value="single" {{ 'selected' if filters.availability == 'single' }}>Single provider</option>
+  </select>
+  <select name="latency" aria-label="Filter latency">
+    <option value="all">Any latency</option>
+    <option value="under_500" {{ 'selected' if filters.latency == 'under_500' }}>Under 500 ms</option>
+    <option value="under_1000" {{ 'selected' if filters.latency == 'under_1000' }}>Under 1 second</option>
+    <option value="under_3000" {{ 'selected' if filters.latency == 'under_3000' }}>Under 3 seconds</option>
+  </select>
+  <select name="freshness" aria-label="Filter freshness">
+    <option value="all">Any freshness</option>
+    <option value="fresh" {{ 'selected' if filters.freshness == 'fresh' }}>Fresh · under 24h</option>
+    <option value="aging" {{ 'selected' if filters.freshness == 'aging' }}>Aging · 1–7 days</option>
+    <option value="stale" {{ 'selected' if filters.freshness == 'stale' }}>Stale · over 7 days</option>
+  </select>
+  <select name="sort" aria-label="Sort models">
+    <option value="name_asc" {{ 'selected' if filters.sort == 'name_asc' }}>Name A–Z</option>
+    <option value="name_desc" {{ 'selected' if filters.sort == 'name_desc' }}>Name Z–A</option>
+    <option value="providers_desc" {{ 'selected' if filters.sort == 'providers_desc' }}>Most providers</option>
+    <option value="latency_asc" {{ 'selected' if filters.sort == 'latency_asc' }}>Lowest latency</option>
+    <option value="tested_desc" {{ 'selected' if filters.sort == 'tested_desc' }}>Recently tested</option>
+  </select>
+  <div class="model-filter-actions">
+    <button class="button secondary" type="submit" data-loading-label="Applying..."><i data-lucide="list-filter"></i>Apply</button>
+    <a class="button secondary" href="/models"><i data-lucide="rotate-ccw"></i>Reset</a>
+  </div>
+</form>
+
+<section class="section">
+  <div class="section-heading">
+    <div><h2>Model catalog</h2><p>{{ filtered_total }} matching models · Sorted by {{ filters.sort|replace('_', ' ') }}</p></div>
+  </div>
+  <div class="table-wrap">
+    <table class="available-models-table">
+      <thead><tr><th>#</th><th>Model</th><th>Capabilities</th><th>Providers</th><th>Best latency</th><th>Range</th><th>Freshness</th><th>Actions</th></tr></thead>
+      <tbody>
+      {% for model in models %}
+        <tr>
+          <td class="row-number">{{ pager.offset + loop.index }}</td>
+          <td><code class="model-name">{{ model.model_id }}</code></td>
+          <td>
+            <div class="capabilities compact">
+              {% if model.capabilities.vision %}<span class="capability" title="Vision"><i data-lucide="eye"></i></span>{% endif %}
+              {% if model.capabilities.reasoning %}<span class="capability" title="Reasoning"><i data-lucide="brain-circuit"></i></span>{% endif %}
+              {% if model.capabilities.tools %}<span class="capability" title="Tools"><i data-lucide="wrench"></i></span>{% endif %}
+              {% if model.capabilities.audio %}<span class="capability" title="Audio"><i data-lucide="audio-lines"></i></span>{% endif %}
+              {% if not model.capabilities %}<span class="capability-empty">Not reported</span>{% endif %}
+            </div>
+          </td>
+          <td>
+            <div class="model-provider-preview">
+              <span class="model-provider-count"><i data-lucide="server"></i>{{ model.provider_count }}</span>
+              <small>{{ model.providers[:2]|join(', ') }}{% if model.provider_count > 2 %} +{{ model.provider_count - 2 }} more{% endif %}</small>
+            </div>
+          </td>
+          <td><strong class="latency-best">{{ model.best_latency_ms|round|int ~ ' ms' if model.best_latency_ms is not none else '—' }}</strong><small class="fastest-provider">{{ model.fastest_provider or 'No latency' }}</small></td>
+          <td>{{ model.best_latency_ms|round|int ~ '–' ~ model.worst_latency_ms|round|int ~ ' ms' if model.best_latency_ms is not none else '—' }}</td>
+          <td><span class="freshness {{ model.freshness }}"><i data-lucide="{{ 'circle-check' if model.freshness == 'fresh' else 'clock-3' if model.freshness == 'aging' else 'triangle-alert' }}"></i>{{ model.freshness|capitalize }}</span><small class="last-tested">{{ model.last_tested|datetime }}</small></td>
+          <td class="actions">
+            <button class="icon-button" type="button" title="Copy model ID" data-copy-value="{{ model.model_id }}"><i data-lucide="copy"></i></button>
+            <button class="icon-button" type="button" title="View model details" data-model-detail-url="/models/detail?model_id={{ model.model_id|urlencode }}"><i data-lucide="eye"></i></button>
+            <form method="post" action="/models/test?model_id={{ model.model_id|urlencode }}" data-model-test-form data-confirm-title="Retest {{ model.model_id }}?" data-confirm-message="This sends one minimal inference request to every provider currently exposing this model. Provider quota or credit may be used." data-confirm-label="Run {{ model.provider_count }} tests"><button class="icon-button model-retest" type="submit" title="Retest across providers"><i data-lucide="flask-conical"></i></button></form>
+          </td>
+        </tr>
+      {% else %}
+        <tr><td colspan="8"><div class="empty">No available models match the active filters.</div></td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% include "_pagination.html" %}
+</section>
+
+<div class="inference-overlay" data-inference-overlay hidden>
+  <section class="inference-progress" role="dialog" aria-modal="true" aria-labelledby="catalog-inference-title">
+    <div class="inference-progress-heading">
+      <span class="app-modal-icon"><i data-lucide="flask-conical"></i></span>
+      <div><h2 id="catalog-inference-title">Retesting model access</h2><p data-inference-progress-text>Preparing provider tests...</p></div>
+    </div>
+    <div class="inference-progress-bar"><span data-inference-progress-bar></span></div>
+    <div class="inference-summary" data-inference-summary></div>
+    <div class="inference-log" data-inference-log aria-live="polite"></div>
+    <div class="inference-progress-actions">
+      <button class="button primary" type="button" data-inference-finish hidden>View results</button>
+    </div>
+  </section>
+</div>
+{% endblock %}

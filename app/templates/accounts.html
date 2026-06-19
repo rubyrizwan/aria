@@ -1,30 +1,102 @@
 {% extends "base.html" %}
-{% block title %}Accounts · API Checker{% endblock %}
+{% block title %}Providers · API Checker{% endblock %}
 {% block content %}
 <header class="page-header">
-  <div><p class="eyebrow">Configuration</p><div class="title-row"><h1>API providers</h1><span class="provider-total">{{ provider_total }} total</span></div><p class="subtle">OpenAI and Anthropic compatible endpoints monitored by this instance.</p></div>
+  <div><p class="eyebrow">Configuration</p><div class="title-row"><h1>API providers</h1><span class="provider-total">{{ provider_total }} total</span></div><p class="subtle">Monitor compatible endpoints, discovered models, and credential inference access.</p></div>
   <a class="button primary" href="/accounts/new"><i data-lucide="plus"></i>Add provider</a>
 </header>
-<form class="filters" method="get">
-  <label class="search"><i data-lucide="search"></i><input name="q" value="{{ query }}" placeholder="Search accounts"></label>
-  <select name="status" onchange="this.form.submit()" aria-label="Filter status">
-    <option value="all" {{ 'selected' if status == 'all' }}>All statuses</option>
-    <option value="healthy" {{ 'selected' if status == 'healthy' }}>Healthy</option>
-    <option value="down" {{ 'selected' if status == 'down' }}>Down</option>
-    <option value="pending" {{ 'selected' if status == 'pending' }}>Pending</option>
-    <option value="disabled" {{ 'selected' if status == 'disabled' }}>Disabled</option>
+
+<section class="stat-grid six provider-stats">
+  <article class="stat"><div class="stat-icon info"><i data-lucide="server-cog"></i></div><div><span>Total providers</span><strong>{{ stats.total }}</strong></div></article>
+  <article class="stat"><div class="stat-icon good"><i data-lucide="circle-check"></i></div><div><span>Healthy</span><strong>{{ stats.healthy }}</strong></div></article>
+  <article class="stat"><div class="stat-icon bad"><i data-lucide="circle-x"></i></div><div><span>Down</span><strong>{{ stats.down }}</strong></div></article>
+  <article class="stat"><div class="stat-icon neutral"><i data-lucide="clock-3"></i></div><div><span>Pending</span><strong>{{ stats.pending }}</strong></div></article>
+  <article class="stat"><div class="stat-icon neutral"><i data-lucide="circle-pause"></i></div><div><span>Disabled</span><strong>{{ stats.disabled }}</strong></div></article>
+  <article class="stat"><div class="stat-icon neutral"><i data-lucide="package-open"></i></div><div><span>Without models</span><strong>{{ stats.without_models }}</strong></div></article>
+</section>
+
+<form class="provider-catalog-filters" method="get">
+  <label class="search"><i data-lucide="search"></i><input name="q" value="{{ query }}" placeholder="Search name, endpoint, or API key label"></label>
+  <select name="status" aria-label="Filter status">
+    <option value="all">All statuses</option>
+    <option value="healthy" {{ 'selected' if filters.status == 'healthy' }}>Healthy</option>
+    <option value="down" {{ 'selected' if filters.status == 'down' }}>Down</option>
+    <option value="pending" {{ 'selected' if filters.status == 'pending' }}>Pending</option>
+    <option value="disabled" {{ 'selected' if filters.status == 'disabled' }}>Disabled</option>
   </select>
-  <button class="button secondary" type="submit" data-loading-label="Filtering...">Filter</button>
+  <select name="compatibility" aria-label="Filter compatibility">
+    <option value="all">All compatibility</option>
+    <option value="openai" {{ 'selected' if filters.compatibility == 'openai' }}>OpenAI</option>
+    <option value="anthropic" {{ 'selected' if filters.compatibility == 'anthropic' }}>Anthropic</option>
+    <option value="unknown" {{ 'selected' if filters.compatibility == 'unknown' }}>Unknown</option>
+  </select>
+  <select name="monitoring" aria-label="Filter monitoring">
+    <option value="all">Any monitoring</option>
+    <option value="enabled" {{ 'selected' if filters.monitoring == 'enabled' }}>Monitoring enabled</option>
+    <option value="disabled" {{ 'selected' if filters.monitoring == 'disabled' }}>Monitoring disabled</option>
+  </select>
+  <select name="models" aria-label="Filter model availability">
+    <option value="all">Any model count</option>
+    <option value="with" {{ 'selected' if filters.models == 'with' }}>Has models</option>
+    <option value="without" {{ 'selected' if filters.models == 'without' }}>No models</option>
+  </select>
+  <select name="inference" aria-label="Filter inference">
+    <option value="all">Any inference</option>
+    <option value="available" {{ 'selected' if filters.inference == 'available' }}>Has available models</option>
+    <option value="tested" {{ 'selected' if filters.inference == 'tested' }}>Inference tested</option>
+    <option value="untested" {{ 'selected' if filters.inference == 'untested' }}>Not tested</option>
+  </select>
+  <select name="freshness" aria-label="Filter freshness">
+    <option value="all">Any freshness</option>
+    <option value="fresh" {{ 'selected' if filters.freshness == 'fresh' }}>Fresh · under 24h</option>
+    <option value="aging" {{ 'selected' if filters.freshness == 'aging' }}>Aging · 1–7 days</option>
+    <option value="stale" {{ 'selected' if filters.freshness == 'stale' }}>Stale / never</option>
+  </select>
+  <select name="sort" aria-label="Sort providers">
+    <option value="name_asc" {{ 'selected' if filters.sort == 'name_asc' }}>Name A–Z</option>
+    <option value="name_desc" {{ 'selected' if filters.sort == 'name_desc' }}>Name Z–A</option>
+    <option value="status" {{ 'selected' if filters.sort == 'status' }}>Status</option>
+    <option value="models_desc" {{ 'selected' if filters.sort == 'models_desc' }}>Most models</option>
+    <option value="available_desc" {{ 'selected' if filters.sort == 'available_desc' }}>Most available</option>
+    <option value="latency_asc" {{ 'selected' if filters.sort == 'latency_asc' }}>Lowest latency</option>
+    <option value="checked_desc" {{ 'selected' if filters.sort == 'checked_desc' }}>Recently checked</option>
+  </select>
+  <div class="provider-filter-actions">
+    <button class="button secondary" type="submit" data-loading-label="Applying..."><i data-lucide="list-filter"></i>Apply</button>
+    <a class="button secondary" href="/accounts"><i data-lucide="rotate-ccw"></i>Reset</a>
+  </div>
 </form>
+
 <section class="section">
+  <div class="provider-table-toolbar">
+    <div><h2>Registered providers</h2><p>{{ pager.total }} matching providers</p></div>
+    <form id="provider-bulk-form" class="bulk-actions" method="post" action="/accounts/bulk" data-confirm-title="Apply bulk action?" data-confirm-message="The selected action will be applied to every checked provider." data-confirm-label="Apply action">
+      <span data-selected-count>0 selected</span>
+      <select name="bulk_action" required aria-label="Bulk action">
+        <option value="">Bulk action</option>
+        <option value="enable">Enable monitoring</option>
+        <option value="disable">Disable monitoring</option>
+        <option value="load_models">Load models</option>
+        <option value="delete">Delete providers</option>
+      </select>
+      <button class="button secondary" type="submit" disabled data-bulk-submit data-loading-label="Applying...">Apply</button>
+    </form>
+  </div>
   <div class="table-wrap">
     <table class="providers-table">
-      <thead><tr><th>#</th><th>Provider</th><th>Status</th><th>Enabled</th><th>Compatibility</th><th>Models</th><th class="endpoint-column">Endpoint</th><th>Last check</th><th>Actions</th></tr></thead>
+      <thead><tr><th class="select-column"><label class="table-select"><input type="checkbox" data-select-all aria-label="Select all providers"><span></span></label></th><th>#</th><th>Provider</th><th>Status</th><th>Monitoring</th><th>Compatibility</th><th>Models</th><th>Inference</th><th>Latency</th><th>Freshness</th><th class="endpoint-column">Endpoint</th><th>Actions</th></tr></thead>
       <tbody>
-      {% for account in accounts %}
+      {% for row in provider_rows %}
+        {% set account = row.account %}
         <tr>
+          <td class="select-column"><label class="table-select"><input type="checkbox" name="account_ids" value="{{ account.id }}" form="provider-bulk-form" data-provider-select aria-label="Select {{ account.name }}"><span></span></label></td>
           <td class="row-number">{{ pager.offset + loop.index }}</td>
-          <td><a class="name-link" href="/accounts/{{ account.id }}">{{ account.name }}</a></td>
+          <td>
+            <div class="provider-name compact">
+              <span class="provider-avatar {{ account.provider_type }}"><i data-lucide="server"></i></span>
+              <span><a class="name-link" href="/accounts/{{ account.id }}">{{ account.name }}</a><small>{{ account.api_key_label or 'Default' }}</small></span>
+            </div>
+          </td>
           <td>{% include "_status.html" %}</td>
           <td>
             <form class="inline-toggle-form" method="post" action="/accounts/{{ account.id }}/toggle">
@@ -35,22 +107,36 @@
             </form>
           </td>
           <td><span class="provider-type {{ account.provider_type }}">{{ account.provider_type|capitalize }}</span></td>
-          <td>{{ account.models|length }}</td>
+          <td><span class="provider-model-metric"><strong>{{ row.model_count }}</strong><small>discovered</small></span></td>
+          <td><span class="provider-model-metric available"><strong>{{ row.available_count }}</strong><small>{{ row.tested_count }} tested</small></span></td>
+          <td>{{ row.latency_ms|round|int ~ ' ms' if row.latency_ms is not none else '—' }}</td>
+          <td><span class="freshness {{ row.freshness }}"><i data-lucide="{{ 'circle-check' if row.freshness == 'fresh' else 'clock-3' if row.freshness == 'aging' else 'circle-help' if row.freshness == 'never' else 'triangle-alert' }}"></i>{{ row.freshness|capitalize }}</span><small class="last-tested">{{ account.last_checked_at|datetime }}</small></td>
           <td class="endpoint-column"><span class="endpoint">{{ account.endpoint_url }}</span></td>
-          <td>{{ account.last_checked_at|datetime }}</td>
-          <td class="actions">
+          <td class="actions provider-actions">
             <button class="icon-button view-provider" type="button" title="View provider" data-provider-summary-url="/accounts/{{ account.id }}/summary"><i data-lucide="eye"></i></button>
-            <form method="post" action="/accounts/{{ account.id }}/check"><button class="icon-button" title="Check now"><i data-lucide="refresh-cw"></i></button></form>
-            <a class="icon-button" title="Edit" href="/accounts/{{ account.id }}/edit"><i data-lucide="pencil"></i></a>
-            <form method="post" action="/accounts/{{ account.id }}/delete" data-confirm-title="Delete {{ account.name }}?" data-confirm-message="This provider and all stored check history will be permanently deleted." data-confirm-label="Delete provider"><button class="icon-button delete-action" title="Delete"><i data-lucide="trash-2"></i></button></form>
+            <form method="post" action="/accounts/{{ account.id }}/check"><button class="icon-button" title="Load models"><i data-lucide="refresh-cw"></i></button></form>
+            <button class="icon-button" type="button" title="More actions" data-provider-actions data-provider-id="{{ account.id }}" data-provider-name="{{ account.name }}" data-provider-model-count="{{ row.model_count }}"><i data-lucide="ellipsis"></i></button>
           </td>
         </tr>
       {% else %}
-        <tr><td colspan="9"><div class="empty">No providers match this filter.</div></td></tr>
+        <tr><td colspan="12"><div class="empty">No providers match the active filters.</div></td></tr>
       {% endfor %}
       </tbody>
     </table>
   </div>
   {% include "_pagination.html" %}
 </section>
+
+<div class="inference-overlay" data-inference-overlay hidden>
+  <section class="inference-progress" role="dialog" aria-modal="true" aria-labelledby="provider-inference-title">
+    <div class="inference-progress-heading">
+      <span class="app-modal-icon"><i data-lucide="flask-conical"></i></span>
+      <div><h2 id="provider-inference-title">Testing model access</h2><p data-inference-progress-text>Preparing inference job...</p></div>
+    </div>
+    <div class="inference-progress-bar"><span data-inference-progress-bar></span></div>
+    <div class="inference-summary" data-inference-summary></div>
+    <div class="inference-log" data-inference-log aria-live="polite"></div>
+    <div class="inference-progress-actions"><button class="button primary" type="button" data-inference-finish hidden>View results</button></div>
+  </section>
+</div>
 {% endblock %}

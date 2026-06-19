@@ -210,7 +210,7 @@ case "${1:-menu}" in
         show_menu
         ;;
     *)
-        echo "Penggunaan: $0 [start|stop|status|help]" >&2
+        echo "Penggunaan: $0 [start|stop|restart|status|help]" >&2
         exit 2
         ;;
 esac

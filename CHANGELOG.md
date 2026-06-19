@@ -2,6 +2,32 @@
 
 All notable changes to API Checker are documented here.
 
+## [0.4.2] - 2026-06-19
+
+### Added
+
+- Unified Available Models catalog across providers with filters, sorting, details, copy actions, freshness, latency, and provider coverage.
+- Append-only inference history, dashboard inference charts, provider attention indicators, and inference-focused activity views.
+- Configurable runtime settings for retention, concurrency, provider defaults, pagination, and opt-in scheduled inference retests.
+- Online SQLite backup script, daily `systemd --user` backup timer, user-service installer, and launcher logrotate configuration.
+- Sidebar server status, bind address, service manager, and protected restart control.
+
+### Changed
+
+- Redesigned Dashboard, Providers, Settings, and About pages for denser operational workflows.
+- Combined recent inference and provider checks after the dashboard provider table.
+- Removed the dashboard's 30-second full-page refresh.
+
+### Security
+
+- Protected dashboard restart requests with a master-key-derived request token.
+- Kept service and launcher deployments bound to the loopback interface.
+
+### Fixed
+
+- Preserved provider compatibility and model inventory during metadata-only edits.
+- Stored and displayed provider notes, API key labels, encrypted credentials, inference latency, and historical model access results consistently.
+
 ## [0.4.1] - 2026-06-19
 
 ### Added

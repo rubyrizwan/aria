@@ -1,0 +1,18 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+USER_NAME="$(id -un)"
+GROUP_NAME="$(id -gn)"
+TEMP_FILE="$(mktemp)"
+trap 'rm -f "$TEMP_FILE"' EXIT
+
+sed \
+    -e "s|__APP_DIR__|$ROOT_DIR|g" \
+    -e "s|__USER__|$USER_NAME|g" \
+    -e "s|__GROUP__|$GROUP_NAME|g" \
+    "$ROOT_DIR/deploy/apichecker.logrotate" >"$TEMP_FILE"
+
+sudo install -m 0644 "$TEMP_FILE" /etc/logrotate.d/apichecker
+sudo logrotate --debug /etc/logrotate.d/apichecker
+echo "Installed: /etc/logrotate.d/apichecker"
