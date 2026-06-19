@@ -2,6 +2,22 @@
 
 All notable changes to ARIA are documented here.
 
+## [1.0.0] - 2026-06-20
+
+### Stable Release
+
+- Declared ARIA ready for stable private deployment through a localhost listener and SSH tunnel.
+- Consolidated OpenAI-compatible and Anthropic-compatible provider detection, encrypted API credentials, model discovery, and per-model inference access testing.
+- Included inference history, operational charts, provider health monitoring, configurable scheduled checks, optional scheduled inference retests, and data retention controls.
+- Included the English `scripts/aria` launcher, SQLite online backups, migration tooling, log rotation support, and optional `systemd --user` deployment.
+- Preserved the existing `APICHECKER_*` environment variables and storage paths for backward compatibility.
+
+### Release Notes
+
+- This release establishes the supported baseline before optional Docker deployment support is introduced.
+- A single ARIA process or replica is required because the scheduler runs inside the web application process.
+- Token usage accounting is not included in version 1.0.0.
+
 ## [0.4.3] - 2026-06-19
 
 ### Changed

@@ -111,6 +111,11 @@ APP_VERSION = __version__
 RELEASE_DATE = datetime.strptime(__release_date__, "%Y-%m-%d").strftime("%d %B %Y")
 RELEASE_HISTORY = (
     {
+        "version": "1.0.0",
+        "date": "20 June 2026",
+        "summary": "First stable ARIA release for private AI provider and inference access monitoring.",
+    },
+    {
         "version": "0.4.3",
         "date": "19 June 2026",
         "summary": "User-facing branding changed to ARIA: API Reliability & Inference Analyzer.",
