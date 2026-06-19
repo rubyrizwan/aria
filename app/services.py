@@ -6,9 +6,9 @@ from datetime import datetime, timedelta, timezone
 from sqlalchemy import delete, func, select
 from sqlalchemy.orm import Session
 
-from app.checker import ProbeResult
+from app.checker import InferenceResult, ProbeResult
 from app.config import settings
-from app.models import Account, AppSetting, CheckResult
+from app.models import Account, AppSetting, CheckResult, ModelInferenceResult
 
 AUTO_MONITORING_KEY = "auto_monitoring_enabled"
 
@@ -50,6 +50,46 @@ def save_probe_result(
     session.commit()
     session.refresh(check)
     return check
+
+
+def save_inference_result(
+    session: Session,
+    account: Account,
+    model_id: str,
+    result: InferenceResult,
+) -> ModelInferenceResult:
+    row = session.scalar(
+        select(ModelInferenceResult).where(
+            ModelInferenceResult.account_id == account.id,
+            ModelInferenceResult.model_id == model_id,
+        )
+    )
+    if not row:
+        row = ModelInferenceResult(
+            account_id=account.id,
+            model_id=model_id,
+            status=result.status,
+        )
+        session.add(row)
+    row.status = result.status
+    row.http_status = result.http_status
+    row.latency_ms = result.latency_ms
+    row.error_message = result.error_message
+    row.checked_at = aware_utcnow()
+    return row
+
+
+def update_inference_latency(
+    account: Account,
+    results: list[InferenceResult],
+) -> None:
+    latencies = [
+        result.latency_ms for result in results if result.latency_ms is not None
+    ]
+    account.last_inference_latency_ms = (
+        round(sum(latencies) / len(latencies), 2) if latencies else None
+    )
+    account.last_inference_at = aware_utcnow()
 
 
 def prune_old_results(session: Session) -> int:

@@ -24,6 +24,14 @@ class ProbeResult:
     models_endpoint: str | None = None
 
 
+@dataclass
+class InferenceResult:
+    status: str
+    http_status: int | None
+    latency_ms: float | None
+    error_message: str | None = None
+
+
 def model_endpoint_candidates(base_url: str) -> list[str]:
     parsed = urlsplit(base_url.rstrip("/"))
     path = parsed.path.rstrip("/")
@@ -53,6 +61,128 @@ def provider_headers(provider_type: str, api_key: str) -> dict[str, str]:
         if api_key:
             headers["x-api-key"] = api_key
     return headers
+
+
+def inference_endpoint(base_url: str, provider_type: str) -> str:
+    parsed = urlsplit(base_url.rstrip("/"))
+    path = parsed.path.rstrip("/")
+    for suffix in ("/models", "/chat/completions", "/messages"):
+        if path.endswith(suffix):
+            path = path[: -len(suffix)]
+            break
+    if not path.endswith("/v1"):
+        path = f"{path}/v1"
+    resource = "messages" if provider_type == "anthropic" else "chat/completions"
+    return urlunsplit((parsed.scheme, parsed.netloc, f"{path}/{resource}", "", ""))
+
+
+def unsupported_inference_model(model_id: str) -> bool:
+    name = model_id.casefold()
+    markers = (
+        "embedding",
+        "embed-",
+        "text-embedding",
+        "image",
+        "dall-e",
+        "tts",
+        "whisper",
+        "transcri",
+        "audio",
+        "rerank",
+        "moderation",
+    )
+    return any(marker in name for marker in markers)
+
+
+def response_error_message(response: httpx.Response) -> str | None:
+    try:
+        payload = response.json()
+    except ValueError:
+        return None
+    if not isinstance(payload, dict):
+        return None
+    error = payload.get("error")
+    if isinstance(error, dict):
+        message = error.get("message")
+        return str(message) if message else None
+    if isinstance(error, str):
+        return error
+    message = payload.get("message")
+    return str(message) if message else None
+
+
+def classify_inference_response(response: httpx.Response) -> tuple[str, str | None]:
+    message = response_error_message(response)
+    if response.is_success:
+        return "available", None
+    if response.status_code == 401:
+        return "unauthorized", message or "API key ditolak."
+    if response.status_code == 403:
+        return "forbidden", message or "API key tidak memiliki akses ke model."
+    if response.status_code == 404:
+        return "unavailable", message or "Model atau endpoint inference tidak tersedia."
+    if response.status_code == 429:
+        return "quota_exceeded", message or "Rate limit atau kuota provider tercapai."
+    return "failed", message or f"Provider merespons HTTP {response.status_code}."
+
+
+async def test_model_inference(account: Account, model_id: str) -> InferenceResult:
+    if unsupported_inference_model(model_id):
+        return InferenceResult(
+            "unsupported",
+            None,
+            None,
+            "Tipe model ini belum didukung oleh inference test.",
+        )
+    if account.provider_type not in {"openai", "anthropic"}:
+        return InferenceResult(
+            "unsupported",
+            None,
+            None,
+            "Compatibility provider belum terdeteksi.",
+        )
+
+    secret = decrypt_secret(account.encrypted_api_key).strip()
+    started = time.perf_counter()
+    try:
+        endpoint = validate_public_endpoint(
+            inference_endpoint(account.endpoint_url, account.provider_type)
+        )
+        headers = provider_headers(account.provider_type, secret)
+        headers["Content-Type"] = "application/json"
+        payload = {
+            "model": model_id,
+            "max_tokens": 1,
+            "messages": [{"role": "user", "content": "Hi"}],
+        }
+        async with httpx.AsyncClient(follow_redirects=False) as client:
+            response = await client.post(
+                endpoint,
+                headers=headers,
+                json=payload,
+                timeout=account.timeout_seconds,
+            )
+        status, error = classify_inference_response(response)
+        return InferenceResult(
+            status,
+            response.status_code,
+            round((time.perf_counter() - started) * 1000, 2),
+            redact_secret(error, secret),
+        )
+    except httpx.TimeoutException:
+        return InferenceResult(
+            "timeout",
+            None,
+            round((time.perf_counter() - started) * 1000, 2),
+            "Request inference timeout.",
+        )
+    except (httpx.NetworkError, httpx.InvalidURL, ValueError) as exc:
+        return InferenceResult(
+            "failed",
+            None,
+            round((time.perf_counter() - started) * 1000, 2),
+            redact_secret(str(exc), secret),
+        )
 
 
 def metadata_capabilities(item: dict) -> dict[str, str]:

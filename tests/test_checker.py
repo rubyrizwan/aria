@@ -1,14 +1,20 @@
 from __future__ import annotations
 
+import json
+
 import httpx
 import pytest
 
 from app.checker import (
+    classify_inference_response,
+    inference_endpoint,
     inferred_capabilities,
     metadata_capabilities,
     model_endpoint_candidates,
     probe_account,
     provider_headers,
+    test_model_inference as run_model_inference,
+    unsupported_inference_model,
 )
 from app.models import Account
 from app.security import encrypt_secret
@@ -183,3 +189,82 @@ def test_capabilities_distinguish_provider_metadata_and_inference():
     assert metadata_capabilities(
         {"capabilities": {"vision": True, "function_calling": True}}
     ) == {"vision": "provider", "tools": "provider"}
+
+
+def test_inference_endpoints_follow_provider_compatibility():
+    assert inference_endpoint("https://example.com", "openai") == (
+        "https://example.com/v1/chat/completions"
+    )
+    assert inference_endpoint("https://example.com/v1/models", "anthropic") == (
+        "https://example.com/v1/messages"
+    )
+
+
+@pytest.mark.parametrize(
+    ("status_code", "expected"),
+    [
+        (200, "available"),
+        (401, "unauthorized"),
+        (403, "forbidden"),
+        (404, "unavailable"),
+        (429, "quota_exceeded"),
+        (500, "failed"),
+    ],
+)
+def test_inference_response_classification(status_code, expected):
+    response = httpx.Response(status_code, json={"error": {"message": "detail"}})
+    status, message = classify_inference_response(response)
+    assert status == expected
+    assert message == (None if status_code == 200 else "detail")
+
+
+def test_non_chat_models_are_skipped():
+    assert unsupported_inference_model("text-embedding-3-small")
+    assert unsupported_inference_model("whisper-1")
+    assert not unsupported_inference_model("gpt-4o-mini")
+
+
+@pytest.mark.asyncio
+async def test_openai_model_inference_uses_minimal_request(monkeypatch):
+    async def handler(request):
+        assert request.url.path == "/v1/chat/completions"
+        assert request.headers["Authorization"] == "Bearer sk-secret"
+        payload = json.loads(request.content)
+        assert payload["model"] == "gpt-test"
+        assert payload["max_tokens"] == 1
+        return httpx.Response(200, json={"choices": []})
+
+    mock_client(monkeypatch, handler)
+    provider = account(provider_type="openai")
+    result = await run_model_inference(provider, "gpt-test")
+    assert result.status == "available"
+    assert result.http_status == 200
+
+
+@pytest.mark.asyncio
+async def test_anthropic_model_inference_uses_messages_endpoint(monkeypatch):
+    async def handler(request):
+        assert request.url.path == "/v1/messages"
+        assert request.headers["x-api-key"] == "sk-secret"
+        assert request.headers["anthropic-version"]
+        payload = json.loads(request.content)
+        assert payload["model"] == "claude-test"
+        return httpx.Response(200, json={"content": []})
+
+    mock_client(monkeypatch, handler)
+    result = await run_model_inference(
+        account(provider_type="anthropic"), "claude-test"
+    )
+    assert result.status == "available"
+
+
+@pytest.mark.asyncio
+async def test_unsupported_model_does_not_make_request(monkeypatch):
+    monkeypatch.setattr(
+        "app.checker.httpx.AsyncClient",
+        lambda **kwargs: pytest.fail("HTTP client should not be created"),
+    )
+    result = await run_model_inference(
+        account(provider_type="openai"), "text-embedding-3-small"
+    )
+    assert result.status == "unsupported"

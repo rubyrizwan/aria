@@ -3,7 +3,16 @@ from __future__ import annotations
 from datetime import datetime, timezone
 import json
 
-from sqlalchemy import Boolean, DateTime, Float, ForeignKey, Integer, String, Text
+from sqlalchemy import (
+    Boolean,
+    DateTime,
+    Float,
+    ForeignKey,
+    Integer,
+    String,
+    Text,
+    UniqueConstraint,
+)
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
@@ -38,6 +47,12 @@ class Account(Base):
     last_checked_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
     )
+    last_inference_latency_ms: Mapped[float | None] = mapped_column(
+        Float, nullable=True
+    )
+    last_inference_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
     next_check_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True, index=True
     )
@@ -47,6 +62,9 @@ class Account(Base):
     )
 
     checks: Mapped[list["CheckResult"]] = relationship(
+        back_populates="account", cascade="all, delete-orphan"
+    )
+    inference_results: Mapped[list["ModelInferenceResult"]] = relationship(
         back_populates="account", cascade="all, delete-orphan"
     )
 
@@ -107,6 +125,32 @@ class CheckResult(Base):
     model_count: Mapped[int] = mapped_column(Integer, default=0)
 
     account: Mapped[Account] = relationship(back_populates="checks")
+
+
+class ModelInferenceResult(Base):
+    __tablename__ = "model_inference_results"
+    __table_args__ = (
+        UniqueConstraint(
+            "account_id",
+            "model_id",
+            name="uq_model_inference_account_model",
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    account_id: Mapped[int] = mapped_column(
+        ForeignKey("accounts.id", ondelete="CASCADE"), index=True
+    )
+    model_id: Mapped[str] = mapped_column(String(255), index=True)
+    status: Mapped[str] = mapped_column(String(30), index=True)
+    http_status: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    latency_ms: Mapped[float | None] = mapped_column(Float, nullable=True)
+    error_message: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    checked_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utcnow, index=True
+    )
+
+    account: Mapped[Account] = relationship(back_populates="inference_results")
 
 
 class AppSetting(Base):

@@ -8,16 +8,16 @@
     <p class="subtle endpoint">{{ account.endpoint_url }}</p>
   </div>
   <div class="header-actions">
-    <form method="post" action="/accounts/{{ account.id }}/check"><button class="button primary" data-loading-label="Checking..."><i data-lucide="refresh-cw"></i>Check now</button></form>
     <a class="button secondary" href="/accounts/{{ account.id }}/edit"><i data-lucide="pencil"></i>Edit</a>
     <form method="post" action="/accounts/{{ account.id }}/delete" data-confirm-title="Delete {{ account.name }}?" data-confirm-message="This provider and all stored check history will be permanently deleted." data-confirm-label="Delete provider"><button class="button danger" data-loading-label="Deleting..."><i data-lucide="trash-2"></i>Delete</button></form>
   </div>
 </header>
-<section class="stat-grid">
+<section class="stat-grid five">
   <article class="stat"><div class="stat-icon neutral"><i data-lucide="plug-zap"></i></div><div><span>Compatibility</span><strong class="stat-text">{{ account.provider_type|capitalize }}</strong></div></article>
   <article class="stat"><div class="stat-icon info"><i data-lucide="boxes"></i></div><div><span>Available models</span><strong>{{ account.models|length }}</strong></div></article>
-  <article class="stat"><div class="stat-icon neutral"><i data-lucide="timer"></i></div><div><span>Last latency</span><strong>{{ latest_check.latency_ms|round|int ~ ' ms' if latest_check and latest_check.latency_ms is not none else '—' }}</strong></div></article>
+  <article class="stat"><div class="stat-icon neutral"><i data-lucide="timer"></i></div><div><span>Last latency</span><strong>{{ account.last_inference_latency_ms|round|int ~ ' ms' if account.last_inference_at and account.last_inference_latency_ms is not none else (latest_check.latency_ms|round|int ~ ' ms' if not account.last_inference_at and latest_check and latest_check.latency_ms is not none else '—') }}</strong><small>{{ 'Inference average' if account.last_inference_at else 'Provider check' }}</small></div></article>
   <article class="stat"><div class="stat-icon good"><i data-lucide="calendar-days"></i></div><div><span>24h success</span><strong>{{ uptime_24h ~ '%' if uptime_24h is not none else '—' }}</strong></div></article>
+  <article class="stat"><div class="stat-icon {{ 'good' if account.enabled and auto_monitoring else 'neutral' }}"><i data-lucide="{{ 'radio-tower' if account.enabled and auto_monitoring else 'circle-pause' }}"></i></div><div><span>Monitoring</span><strong class="stat-text">{{ 'Active' if account.enabled and auto_monitoring else ('Global off' if not auto_monitoring else 'Disabled') }}</strong><small>Every {{ account.interval_minutes }} minutes</small></div></article>
 </section>
 <section class="provider-credential">
   <div>
@@ -41,27 +41,56 @@
 <section class="section">
   <div class="section-heading">
     <div><h2>Available models</h2><p>{{ account.models_endpoint or 'Models endpoint has not been detected.' }}</p></div>
-    {% if account.models %}<span class="model-count">{{ account.models|length }} models</span>{% endif %}
+    <div class="section-actions">
+      <form method="post" action="/accounts/{{ account.id }}/check"><button class="button primary" data-loading-label="Loading models..."><i data-lucide="refresh-cw"></i>Load models</button></form>
+      <form method="post" action="/accounts/{{ account.id }}/test-models" data-model-test-form data-confirm-title="Test access to {{ account.models|length }} models?" data-confirm-message="This sends one minimal inference request for each supported model using the registered API key. Provider tokens, credit, and rate limits may be used." data-confirm-label="Run {{ account.models|length }} tests"><button class="button orange" {{ 'disabled' if not account.models }}><i data-lucide="flask-conical"></i>Test model access</button></form>
+      {% if account.models %}
+      <span class="model-count">{{ account.models|length }} models</span>
+      {% endif %}
+    </div>
   </div>
   {% if account.models %}
+  <div class="model-result-summary">
+    {% for status in inference_status_order %}
+    <span class="inference-summary-item {{ status }}">{{ status|replace('_', ' ')|capitalize }} <strong>{{ inference_summary[status] }}</strong></span>
+    {% endfor %}
+  </div>
   <form class="model-search" method="get">
     <input type="hidden" name="page" value="{{ pager.page }}">
     <label class="search"><i data-lucide="search"></i><input name="model_q" value="{{ model_query }}" placeholder="Search model name"></label>
-    <button class="button secondary" type="submit" data-loading-label="Searching...">Search</button>
-    {% if model_query %}<a class="button secondary" href="/accounts/{{ account.id }}?page={{ pager.page }}">Clear</a>{% endif %}
+    <select name="capability" aria-label="Filter capabilities">
+      <option value="all" {{ 'selected' if capability_filter == 'all' }}>All capabilities</option>
+      <option value="vision" {{ 'selected' if capability_filter == 'vision' }}>Vision</option>
+      <option value="reasoning" {{ 'selected' if capability_filter == 'reasoning' }}>Reasoning</option>
+      <option value="audio" {{ 'selected' if capability_filter == 'audio' }}>Audio</option>
+      <option value="tools" {{ 'selected' if capability_filter == 'tools' }}>Tools</option>
+      <option value="none" {{ 'selected' if capability_filter == 'none' }}>Not reported</option>
+    </select>
+    <select name="inference_access" aria-label="Filter inference access">
+      <option value="all" {{ 'selected' if inference_filter == 'all' }}>All inference access</option>
+      <option value="available" {{ 'selected' if inference_filter == 'available' }}>Available</option>
+      <option value="forbidden" {{ 'selected' if inference_filter == 'forbidden' }}>Forbidden</option>
+      <option value="unauthorized" {{ 'selected' if inference_filter == 'unauthorized' }}>Unauthorized</option>
+      <option value="unavailable" {{ 'selected' if inference_filter == 'unavailable' }}>Unavailable</option>
+      <option value="quota_exceeded" {{ 'selected' if inference_filter == 'quota_exceeded' }}>Quota exceeded</option>
+      <option value="timeout" {{ 'selected' if inference_filter == 'timeout' }}>Timeout</option>
+      <option value="failed" {{ 'selected' if inference_filter == 'failed' }}>Failed</option>
+      <option value="unsupported" {{ 'selected' if inference_filter == 'unsupported' }}>Unsupported</option>
+      <option value="not_tested" {{ 'selected' if inference_filter == 'not_tested' }}>Not tested</option>
+    </select>
+    <button class="button secondary" type="submit" data-loading-label="Filtering...">Apply</button>
+    {% if model_query or capability_filter != 'all' or inference_filter != 'all' %}<a class="button secondary" href="/accounts/{{ account.id }}?page={{ pager.page }}">Clear</a>{% endif %}
   </form>
   {% endif %}
   {% if models %}
   <div class="table-wrap">
     <table>
-      <thead><tr><th>#</th><th>Model</th><th>Display name</th><th>Owner</th><th>Capabilities</th></tr></thead>
+      <thead><tr><th>#</th><th>Model</th><th>Capabilities</th><th>Inference access</th><th>HTTP</th><th>Last tested</th><th>Result</th></tr></thead>
       <tbody>
       {% for model in models %}
         <tr>
           <td class="row-number">{{ model_pager.offset + loop.index }}</td>
           <td><code class="model-name">{{ model.id }}</code></td>
-          <td>{{ model.display_name }}</td>
-          <td>{{ model.owned_by or '—' }}</td>
           <td>
             <div class="capabilities">
               {% if model.capabilities.vision %}<span class="capability" title="Vision support · {{ model.capabilities.vision|capitalize }}"><i data-lucide="eye"></i><span>Vision</span><small>{{ model.capabilities.vision|capitalize }}</small></span>{% endif %}
@@ -71,6 +100,17 @@
               {% if not model.capabilities %}<span class="capability-empty">Not reported</span>{% endif %}
             </div>
           </td>
+          {% set inference = inference_results.get(model.id) %}
+          <td>
+            {% if inference %}
+            <span class="inference-status {{ inference.status }}" title="{{ inference.error_message or inference.status|capitalize }}"><i data-lucide="{{ 'circle-check' if inference.status == 'available' else 'circle-help' if inference.status == 'unsupported' else 'clock-alert' if inference.status == 'timeout' else 'circle-x' }}"></i>{{ inference.status|replace('_', ' ')|capitalize }}</span>
+            {% else %}
+            <span class="inference-status not-tested"><i data-lucide="minus"></i>Not tested</span>
+            {% endif %}
+          </td>
+          <td>{{ inference.http_status if inference and inference.http_status else '—' }}</td>
+          <td>{{ inference.checked_at|datetime if inference else 'Never' }}</td>
+          <td class="inference-message">{{ inference.error_message if inference and inference.error_message else 'Inference completed successfully' if inference else '—' }}</td>
         </tr>
       {% endfor %}
       </tbody>
@@ -78,9 +118,23 @@
   </div>
   {% with pager=model_pager %}{% include "_pagination.html" %}{% endwith %}
   {% else %}
-  <div class="empty">{{ 'No models match this search.' if model_query else 'Run a check to discover models from this provider.' }}</div>
+  <div class="empty">{{ 'No models match the active filters.' if model_query or capability_filter != 'all' or inference_filter != 'all' else 'Run a check to discover models from this provider.' }}</div>
   {% endif %}
 </section>
+<div class="inference-overlay" data-inference-overlay hidden>
+  <section class="inference-progress" role="dialog" aria-modal="true" aria-labelledby="inference-progress-title">
+    <div class="inference-progress-heading">
+      <span class="app-modal-icon"><i data-lucide="flask-conical"></i></span>
+      <div><h2 id="inference-progress-title">Testing model access</h2><p data-inference-progress-text>Preparing inference job...</p></div>
+    </div>
+    <div class="inference-progress-bar"><span data-inference-progress-bar></span></div>
+    <div class="inference-summary" data-inference-summary></div>
+    <div class="inference-log" data-inference-log aria-live="polite"></div>
+    <div class="inference-progress-actions">
+      <button class="button primary" type="button" data-inference-finish hidden>View results</button>
+    </div>
+  </section>
+</div>
 <section class="section">
   <div class="section-heading"><div><h2>Check history</h2><p>Compatibility checks, 30 rows per page.</p></div></div>
   <div class="table-wrap"><table><thead><tr><th>Time</th><th>Status</th><th>Type</th><th>Models</th><th>HTTP</th><th>Latency</th><th>Result</th></tr></thead><tbody>

@@ -1,11 +1,13 @@
 from __future__ import annotations
 
+import asyncio
 from contextlib import asynccontextmanager
 from datetime import datetime, timedelta, timezone
 from math import ceil
 from pathlib import Path
 from typing import Annotated
 from urllib.parse import urlencode
+from uuid import uuid4
 
 from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
@@ -14,9 +16,9 @@ from fastapi.templating import Jinja2Templates
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from app.database import Base, engine, get_db
-from app.checker import probe_account
-from app.models import Account, CheckResult
+from app.database import Base, SessionLocal, engine, get_db
+from app.checker import InferenceResult, probe_account, test_model_inference
+from app.models import Account, CheckResult, ModelInferenceResult
 from app.scheduler import scheduler
 from app.security import (
     SecretConfigurationError,
@@ -24,7 +26,12 @@ from app.security import (
     encrypt_secret,
     get_fernet,
 )
-from app.services import account_metrics, schedule_next, uptime_percent
+from app.services import (
+    account_metrics,
+    save_inference_result,
+    update_inference_latency,
+    uptime_percent,
+)
 from app.services import is_auto_monitoring_enabled, set_auto_monitoring
 from app.validation import (
     ALLOWED_INTERVALS,
@@ -34,6 +41,11 @@ from app.version import __release_date__, __version__
 
 BASE_DIR = Path(__file__).resolve().parent
 templates = Jinja2Templates(directory=BASE_DIR / "templates")
+ASSET_VERSION = max(
+    (BASE_DIR / "static/app.css").stat().st_mtime_ns,
+    (BASE_DIR / "static/app.js").stat().st_mtime_ns,
+)
+templates.env.globals["asset_version"] = ASSET_VERSION
 
 
 def format_datetime(value: datetime | None) -> str:
@@ -63,6 +75,7 @@ DbSession = Annotated[Session, Depends(get_db)]
 PAGE_SIZE = 30
 APP_VERSION = __version__
 RELEASE_DATE = datetime.strptime(__release_date__, "%Y-%m-%d").strftime("%d %B %Y")
+INFERENCE_JOBS: dict[str, dict] = {}
 
 
 def provider_ordering():
@@ -71,6 +84,71 @@ def provider_ordering():
 
 def template_context(request: Request, **values):
     return {"request": request, "path": request.url.path, **values}
+
+
+def inference_job_payload(job: dict) -> dict:
+    return {
+        key: value
+        for key, value in job.items()
+        if key not in {"task"}
+    }
+
+
+async def run_inference_job(job_id: str, account_id: int) -> None:
+    job = INFERENCE_JOBS[job_id]
+    semaphore = asyncio.Semaphore(5)
+    try:
+        with SessionLocal() as session:
+            account = session.get(Account, account_id)
+            if not account:
+                raise RuntimeError("Provider no longer exists.")
+            completed_results: list[InferenceResult] = []
+
+            async def run(model_id: str):
+                async with semaphore:
+                    job["logs"].append(
+                        {"model": model_id, "status": "running", "message": "Testing"}
+                    )
+                    try:
+                        result = await test_model_inference(account, model_id)
+                    except Exception as exc:
+                        result = InferenceResult(
+                            "failed",
+                            None,
+                            None,
+                            f"Inference test failed: {exc}"[:500],
+                        )
+                    return model_id, result
+
+            tasks = [
+                asyncio.create_task(run(model_id)) for model_id in job["models"]
+            ]
+            for task in asyncio.as_completed(tasks):
+                model_id, result = await task
+                save_inference_result(session, account, model_id, result)
+                completed_results.append(result)
+                session.commit()
+                job["completed"] += 1
+                job["summary"][result.status] = (
+                    job["summary"].get(result.status, 0) + 1
+                )
+                job["logs"].append(
+                    {
+                        "model": model_id,
+                        "status": result.status,
+                        "message": result.error_message
+                        or "Inference completed successfully.",
+                    }
+                )
+            update_inference_latency(account, completed_results)
+            session.commit()
+        job["status"] = "completed"
+    except Exception as exc:
+        job["status"] = "failed"
+        job["error"] = str(exc)
+        job["logs"].append(
+            {"model": "Job", "status": "failed", "message": str(exc)}
+        )
 
 
 def pagination(
@@ -430,6 +508,8 @@ def account_detail(
     page: int = 1,
     model_page: int = 1,
     model_q: str = "",
+    capability: str = "all",
+    inference_access: str = "all",
 ):
     account = db.get(Account, account_id)
     if not account:
@@ -444,6 +524,8 @@ def account_detail(
         f"/accounts/{account_id}",
         model_page=model_page,
         model_q=model_q,
+        capability=capability,
+        inference_access=inference_access,
     )
     checks = list(
         db.scalars(
@@ -457,7 +539,52 @@ def account_detail(
     )
     healthy_24h, total_24h = account_metrics(db, account_id, 24)
     healthy_7d, total_7d = account_metrics(db, account_id, 24 * 7)
+    all_inference_rows = list(
+        db.scalars(
+            select(ModelInferenceResult).where(
+                ModelInferenceResult.account_id == account_id
+            )
+        )
+    )
+    all_inference_results = {row.model_id: row for row in all_inference_rows}
+    inference_status_order = (
+        "available",
+        "forbidden",
+        "unauthorized",
+        "unavailable",
+        "quota_exceeded",
+        "timeout",
+        "failed",
+        "unsupported",
+        "not_tested",
+    )
+    inference_summary = {status: 0 for status in inference_status_order}
+    for model_id in account.models:
+        result = all_inference_results.get(model_id)
+        status = result.status if result else "not_tested"
+        inference_summary[status] = inference_summary.get(status, 0) + 1
+
     model_query = model_q.strip().casefold()
+    capability_filter = capability if capability in {
+        "all",
+        "vision",
+        "reasoning",
+        "audio",
+        "tools",
+        "none",
+    } else "all"
+    inference_filter = inference_access if inference_access in {
+        "all",
+        "available",
+        "unauthorized",
+        "forbidden",
+        "unavailable",
+        "quota_exceeded",
+        "timeout",
+        "failed",
+        "unsupported",
+        "not_tested",
+    } else "all"
     filtered_models = [
         model
         for model in account.model_details
@@ -465,6 +592,27 @@ def account_detail(
         or model_query in model["id"].casefold()
         or model_query in model["display_name"].casefold()
     ]
+    if capability_filter != "all":
+        filtered_models = [
+            model
+            for model in filtered_models
+            if (
+                not model["capabilities"]
+                if capability_filter == "none"
+                else capability_filter in model["capabilities"]
+            )
+        ]
+    if inference_filter != "all":
+        filtered_models = [
+            model
+            for model in filtered_models
+            if (
+                all_inference_results.get(model["id"]).status
+                if all_inference_results.get(model["id"])
+                else "not_tested"
+            )
+            == inference_filter
+        ]
     model_pager = pagination(
         model_page,
         len(filtered_models),
@@ -472,10 +620,17 @@ def account_detail(
         page_param="model_page",
         page=page,
         model_q=model_q,
+        capability=capability_filter,
+        inference_access=inference_filter,
     )
     models = filtered_models[
         model_pager["offset"] : model_pager["offset"] + PAGE_SIZE
     ]
+    inference_results = {
+        model["id"]: all_inference_results[model["id"]]
+        for model in models
+        if model["id"] in all_inference_results
+    }
     return templates.TemplateResponse(
         request,
         "account_detail.html",
@@ -488,6 +643,12 @@ def account_detail(
             models=models,
             model_pager=model_pager,
             model_query=model_q,
+            capability_filter=capability_filter,
+            inference_filter=inference_filter,
+            inference_results=inference_results,
+            inference_summary=inference_summary,
+            inference_status_order=inference_status_order,
+            auto_monitoring=is_auto_monitoring_enabled(db),
             uptime_24h=uptime_percent(healthy_24h, total_24h),
             uptime_7d=uptime_percent(healthy_7d, total_7d),
         ),
@@ -617,6 +778,56 @@ async def check_now(account_id: int, db: DbSession):
         raise HTTPException(404)
     await scheduler.check_account(account_id)
     return RedirectResponse(f"/accounts/{account_id}", status_code=303)
+
+
+@app.post("/accounts/{account_id}/test-models")
+async def test_account_models(request: Request, account_id: int, db: DbSession):
+    account = db.get(Account, account_id)
+    if not account:
+        raise HTTPException(404)
+    if not account.models:
+        raise HTTPException(400, "No models are available for inference testing.")
+    if len(INFERENCE_JOBS) > 100:
+        completed = [
+            job_id
+            for job_id, job in INFERENCE_JOBS.items()
+            if job["status"] in {"completed", "failed"}
+        ]
+        for old_job_id in completed[:50]:
+            INFERENCE_JOBS.pop(old_job_id, None)
+
+    job_id = uuid4().hex
+    INFERENCE_JOBS[job_id] = {
+        "id": job_id,
+        "account_id": account_id,
+        "status": "running",
+        "total": len(account.models),
+        "completed": 0,
+        "models": list(account.models),
+        "summary": {},
+        "logs": [],
+        "error": None,
+    }
+    task = asyncio.create_task(
+        run_inference_job(job_id, account_id),
+        name=f"inference-test-{account_id}-{job_id}",
+    )
+    INFERENCE_JOBS[job_id]["task"] = task
+    payload = {
+        "job_id": job_id,
+        "progress_url": f"/accounts/{account_id}/test-models/{job_id}",
+    }
+    if "application/json" in request.headers.get("accept", ""):
+        return JSONResponse(payload, status_code=202)
+    return RedirectResponse(f"/accounts/{account_id}", status_code=303)
+
+
+@app.get("/accounts/{account_id}/test-models/{job_id}")
+def inference_job_status(account_id: int, job_id: str):
+    job = INFERENCE_JOBS.get(job_id)
+    if not job or job["account_id"] != account_id:
+        raise HTTPException(404)
+    return JSONResponse(inference_job_payload(job), headers={"Cache-Control": "no-store"})
 
 
 @app.post("/accounts/{account_id}/delete")

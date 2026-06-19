@@ -2,6 +2,23 @@
 
 All notable changes to API Checker are documented here.
 
+## [0.4.1] - 2026-06-19
+
+### Added
+
+- Per-model inference access tests with live progress logs and result summaries.
+- Capability and inference-access filters for discovered models.
+- Provider monitoring state, interval, and inference latency statistics.
+
+### Changed
+
+- Renamed the manual provider check action to Load models and placed it before model access testing.
+- Disabled model access testing until models have been loaded.
+
+### Fixed
+
+- Persisted the latest average inference latency after each completed model test.
+
 ## [0.4.0] - 2026-06-19
 
 ### Added

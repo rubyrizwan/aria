@@ -10,6 +10,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const modalBody = modal.querySelector("[data-modal-body]");
   const modalConfirm = modal.querySelector("[data-modal-confirm]");
   const modalCancel = modal.querySelector("[data-modal-cancel]");
+  const inferenceOverlay = document.querySelector("[data-inference-overlay]");
   let confirmAction = null;
   let modalTrigger = null;
 
@@ -109,6 +110,94 @@ document.addEventListener("DOMContentLoaded", () => {
     });
     return list;
   };
+
+  const startModelTest = async (form, trigger) => {
+    const progressText = inferenceOverlay.querySelector("[data-inference-progress-text]");
+    const progressBar = inferenceOverlay.querySelector("[data-inference-progress-bar]");
+    const summary = inferenceOverlay.querySelector("[data-inference-summary]");
+    const log = inferenceOverlay.querySelector("[data-inference-log]");
+    const finishButton = inferenceOverlay.querySelector("[data-inference-finish]");
+    let renderedLogs = 0;
+    progressText.textContent = "Starting inference job...";
+    progressBar.style.width = "0%";
+    summary.replaceChildren();
+    log.replaceChildren();
+    finishButton.hidden = true;
+    inferenceOverlay.hidden = false;
+    document.body.classList.add("modal-open");
+    trigger.disabled = true;
+
+    const renderSummary = (counts) => {
+      summary.replaceChildren();
+      Object.entries(counts).forEach(([status, count]) => {
+        const item = document.createElement("span");
+        item.className = `inference-summary-item ${status}`;
+        item.textContent = `${status.replaceAll("_", " ")}: ${count}`;
+        summary.append(item);
+      });
+    };
+
+    const renderLogs = (logs) => {
+      logs.slice(renderedLogs).forEach((entry) => {
+        const row = document.createElement("div");
+        const status = document.createElement("span");
+        const copy = document.createElement("span");
+        row.className = "inference-log-row";
+        status.className = `inference-log-status ${entry.status}`;
+        status.textContent = entry.status.replaceAll("_", " ");
+        copy.textContent = `${entry.model} · ${entry.message}`;
+        row.append(status, copy);
+        log.append(row);
+      });
+      renderedLogs = logs.length;
+      log.scrollTop = log.scrollHeight;
+    };
+
+    try {
+      const response = await fetch(form.action, {
+        method: "POST",
+        headers: { Accept: "application/json" },
+      });
+      if (!response.ok) {
+        const payload = await response.json().catch(() => ({}));
+        throw new Error(payload.detail || "Inference job could not be started.");
+      }
+      const started = await response.json();
+      while (true) {
+        const progressResponse = await fetch(started.progress_url, {
+          headers: { Accept: "application/json" },
+          cache: "no-store",
+        });
+        if (!progressResponse.ok) throw new Error("Inference progress was lost.");
+        const job = await progressResponse.json();
+        const percent = job.total ? Math.round((job.completed / job.total) * 100) : 0;
+        progressBar.style.width = `${percent}%`;
+        progressText.textContent = `${job.completed} of ${job.total} models completed`;
+        renderSummary(job.summary);
+        renderLogs(job.logs);
+        if (job.status === "completed" || job.status === "failed") {
+          progressText.textContent = job.status === "completed"
+            ? `Completed ${job.completed} model tests`
+            : `Job failed: ${job.error || "Unknown error"}`;
+          finishButton.hidden = false;
+          finishButton.focus();
+          break;
+        }
+        await new Promise((resolve) => window.setTimeout(resolve, 500));
+      }
+    } catch (error) {
+      progressText.textContent = error.message;
+      finishButton.hidden = false;
+    } finally {
+      trigger.disabled = false;
+    }
+  };
+
+  if (inferenceOverlay) {
+    inferenceOverlay.querySelector("[data-inference-finish]").addEventListener("click", () => {
+      window.location.reload();
+    });
+  }
 
   modal.querySelectorAll("[data-modal-close], [data-modal-cancel]").forEach((button) => {
     button.addEventListener("click", closeModal);
@@ -224,8 +313,12 @@ document.addEventListener("DOMContentLoaded", () => {
     event.preventDefault();
     const submitter = event.submitter;
     confirmAction = () => {
-      form.dataset.confirmBypass = "true";
-      form.requestSubmit(submitter);
+      if (form.hasAttribute("data-model-test-form")) {
+        startModelTest(form, submitter);
+      } else {
+        form.dataset.confirmBypass = "true";
+        form.requestSubmit(submitter);
+      }
     };
     openModal({
       title: form.dataset.confirmTitle,
