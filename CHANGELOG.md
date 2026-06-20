@@ -2,6 +2,15 @@
 
 All notable changes to ARIA are documented here.
 
+## [Unreleased]
+
+### Added
+
+- Optional Docker image and Docker Compose deployment with automatic Alembic migrations.
+- Non-root container execution, health checks, read-only root filesystem, dropped Linux capabilities, and persistent SQLite storage.
+- Configurable application bind address through `APICHECKER_HOST`.
+- Container deployment, SSH tunnel, backup, restart, and upgrade documentation.
+
 ## [1.0.1] - 2026-06-20
 
 ### Fixed

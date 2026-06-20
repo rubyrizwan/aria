@@ -22,6 +22,7 @@ class Settings:
     scheduler_poll_seconds: int = int(
         os.getenv("APICHECKER_SCHEDULER_POLL_SECONDS", "10")
     )
+    host: str = os.getenv("APICHECKER_HOST", "127.0.0.1").strip()
     port: int = int(os.getenv("APICHECKER_PORT", "8000"))
     service_manager: str = os.getenv(
         "APICHECKER_SERVICE_MANAGER", "launcher"

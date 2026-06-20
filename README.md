@@ -28,8 +28,10 @@ Versi stabil saat ini: **1.0.1**. Fitur token usage belum termasuk dalam versi i
 - Retensi histori otomatis, default 30 hari
 - Pengaturan global untuk mengaktifkan atau menonaktifkan monitoring otomatis
 - UI responsif tanpa dependency frontend dari CDN
-- Server entrypoint selalu bind ke `127.0.0.1`
+- Server default bind ke `127.0.0.1`; deployment container mengoverride bind internal
+  ke `0.0.0.0` dan tetap publish hanya ke loopback VPS
 - Backup SQLite online dan dukungan service `systemd --user`
+- Deployment alternatif menggunakan Docker Compose
 
 ## Instalasi
 
@@ -68,8 +70,8 @@ atau berubah.
 .venv/bin/python -m app
 ```
 
-Entrypoint ini selalu bind ke `127.0.0.1`, port `8000` secara default. Ubah port melalui
-`APICHECKER_PORT` di `.env` atau argumen `--port`.
+Entrypoint default bind ke `127.0.0.1`, port `8000`. Ubah melalui
+`APICHECKER_HOST`, `APICHECKER_PORT`, atau argumen `--host` dan `--port`.
 
 Jangan menjalankan lebih dari satu worker karena scheduler berada di proses web yang sama.
 
@@ -98,6 +100,80 @@ PID, uptime, bind address, service mode, database, runtime paths, and an SSH
 tunnel example. The launcher applies database migrations before startup,
 stores the PID in `data/apichecker.pid`, and writes output to
 `data/apichecker.log`.
+
+## Menjalankan dengan Docker
+
+Docker adalah opsi deployment alternatif. Jangan menjalankan deployment launcher,
+systemd, dan Docker pada port host yang sama secara bersamaan.
+
+Pastikan `.env` sudah tersedia dan `APICHECKER_MASTER_KEY` berisi Fernet key yang valid:
+
+```bash
+cp .env.example .env
+docker compose run --rm aria python -m app generate-key
+```
+
+Masukkan key yang dihasilkan ke `.env`, kemudian build dan jalankan:
+
+```bash
+docker compose build
+docker compose up -d
+docker compose ps
+docker compose logs -f aria
+```
+
+Compose menjalankan migrasi Alembic otomatis sebelum aplikasi dimulai. Database disimpan
+pada named volume `aria-data`. Container berjalan sebagai non-root user, menggunakan
+read-only root filesystem, dan tidak memiliki Linux capabilities.
+
+Port container hanya dipublish ke loopback VPS:
+
+```text
+127.0.0.1:8000 -> container:8000
+```
+
+Gunakan SSH tunnel yang sama dari komputer lokal:
+
+```bash
+ssh -N -L 8080:127.0.0.1:8000 user@alamat-vps
+```
+
+Port host dapat diganti tanpa mengubah `.env`:
+
+```bash
+ARIA_PORT=8010 docker compose up -d
+```
+
+Perintah operasional:
+
+```bash
+docker compose restart aria
+docker compose stop
+docker compose start
+docker compose down
+```
+
+Tombol Restart pada sidebar dinonaktifkan di container. Restart dilakukan dari host
+menggunakan Docker Compose.
+
+Backup database container:
+
+```bash
+docker compose exec aria aria-backup --destination /app/data/backups --keep 14
+docker cp aria:/app/data/backups ./backups
+```
+
+Direktori backup di dalam container berada pada volume data yang sama. Salin hasilnya ke
+host atau storage eksternal secara berkala.
+
+Upgrade image setelah menarik perubahan repository:
+
+```bash
+docker compose build --pull
+docker compose up -d
+```
+
+Gunakan hanya satu replica karena scheduler berjalan di dalam proses web.
 
 ## Penggunaan aplikasi
 
@@ -270,6 +346,7 @@ Detail lengkap tersedia di [CHANGELOG.md](CHANGELOG.md).
 | --- | --- | --- |
 | `APICHECKER_MASTER_KEY` | wajib | Kunci Fernet untuk enkripsi API key |
 | `APICHECKER_DATABASE_URL` | `sqlite:///./data/apichecker.db` | Lokasi database |
+| `APICHECKER_HOST` | `127.0.0.1` | Bind address aplikasi; Compose mengoverride ke `0.0.0.0` di dalam container |
 | `APICHECKER_PORT` | `8000` | Port loopback server |
 | `APICHECKER_SERVICE_MANAGER` | `launcher` | Mekanisme restart: `launcher` atau `systemd-user` |
 | `APICHECKER_HISTORY_DAYS` | `30` | Retensi histori |

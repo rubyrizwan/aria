@@ -1,0 +1,10 @@
+#!/usr/bin/env sh
+set -eu
+
+mkdir -p /app/data
+
+echo "Applying ARIA database migrations..."
+alembic upgrade head
+
+echo "Starting ARIA container..."
+exec "$@"

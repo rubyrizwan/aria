@@ -1,0 +1,42 @@
+services:
+  aria:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: aria:local
+    container_name: aria
+    init: true
+    restart: unless-stopped
+    read_only: true
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    env_file:
+      - .env
+    environment:
+      APICHECKER_HOST: 0.0.0.0
+      APICHECKER_PORT: 8000
+      APICHECKER_SERVICE_MANAGER: disabled
+      APICHECKER_DATABASE_URL: sqlite:////app/data/apichecker.db
+    ports:
+      - "127.0.0.1:${ARIA_PORT:-8000}:8000"
+    volumes:
+      - aria-data:/app/data
+    tmpfs:
+      - /tmp:size=64m,mode=1777
+    stop_grace_period: 15s
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/healthz', timeout=2)"
+      interval: 30s
+      timeout: 3s
+      start_period: 15s
+      retries: 3
+
+volumes:
+  aria-data:
+    name: aria-data

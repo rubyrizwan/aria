@@ -9,6 +9,7 @@ from fastapi import HTTPException
 from starlette.requests import Request
 
 from app import main
+from app import __main__ as app_cli
 
 
 def test_aria_launcher_is_executable_and_uses_english_interface():
@@ -39,6 +40,29 @@ def test_aria_launcher_detects_relocated_processes():
 
     assert '"/.venv/bin/python -m app"' in launcher
     assert '"$ROOT_DIR/.venv/bin/python -m app"' not in launcher
+
+
+def test_cli_accepts_container_bind_address(monkeypatch):
+    called = {}
+
+    def fake_run(target, **options):
+        called["target"] = target
+        called.update(options)
+
+    monkeypatch.setattr(app_cli.uvicorn, "run", fake_run)
+    monkeypatch.setattr(
+        "sys.argv",
+        ["aria", "--host", "0.0.0.0", "--port", "8010"],
+    )
+
+    app_cli.main()
+
+    assert called == {
+        "target": "app.main:app",
+        "host": "0.0.0.0",
+        "port": 8010,
+        "workers": 1,
+    }
 
 
 def test_sidebar_shows_runtime_information_and_restart_control():

@@ -60,7 +60,7 @@ ASSET_VERSION = max(
     (BASE_DIR / "static/app.js").stat().st_mtime_ns,
 )
 templates.env.globals["asset_version"] = ASSET_VERSION
-templates.env.globals["server_host"] = "127.0.0.1"
+templates.env.globals["server_host"] = settings.host
 templates.env.globals["server_port"] = settings.port
 templates.env.globals["service_manager"] = settings.service_manager
 templates.env.globals["restart_supported"] = settings.service_manager in {
