@@ -103,6 +103,8 @@ stores the PID in `data/apichecker.pid`, and writes output to
 
 ## Menjalankan dengan Docker
 
+Panduan referensi lengkap: [docs/DOCKER.md](docs/DOCKER.md) (arsitektur image, konfigurasi `compose.yaml`, variabel environment, build manual, operasional, keamanan, dan troubleshooting).
+
 Docker adalah opsi deployment alternatif. Jangan menjalankan deployment launcher,
 systemd, dan Docker pada port host yang sama secara bersamaan.
 
