@@ -2,6 +2,12 @@
 
 All notable changes to ARIA are documented here.
 
+## [1.0.2] - 2026-06-20
+
+### Changed
+
+- Describe this release before committing.
+
 ## [Unreleased]
 
 ### Added
