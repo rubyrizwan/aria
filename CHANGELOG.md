@@ -2,6 +2,20 @@
 
 All notable changes to ARIA are documented here.
 
+## [1.0.5] - 2026-06-24
+
+### Added
+
+- Dedicated Database page for SQLite export and import operations.
+- Consistent SQLite database export downloads with attachment headers.
+- SQLite database import with integrity validation before replacing the active database.
+
+### Changed
+
+- Moved database transfer controls out of Settings into the Database sidebar menu.
+- Redirected the old Settings export URL to the Database page to avoid blank-page navigation.
+- Improved import form styling and test coverage for database transfer flows.
+
 ## [1.0.4] - 2026-06-23
 
 ### Fixed

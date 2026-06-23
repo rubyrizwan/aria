@@ -153,6 +153,11 @@ def import_sqlite_database(uploaded: Path, target: Path) -> None:
 
 RELEASE_HISTORY = (
     {
+        "version": "1.0.5",
+        "date": "24 June 2026",
+        "summary": "Database export and import are available from a dedicated Database page.",
+    },
+    {
         "version": "1.0.4",
         "date": "23 June 2026",
         "summary": "Release tooling now keeps the README stable version in sync automatically.",
