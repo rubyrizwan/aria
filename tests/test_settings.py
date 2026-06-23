@@ -1,12 +1,23 @@
 import json
+import sqlite3
+from pathlib import Path
 
+from fastapi import HTTPException
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
 from starlette.requests import Request
 
 from app.checker import InferenceResult
 from app.database import Base
-from app.main import app, new_account, pagination, settings_page
+from app.main import (
+    app,
+    export_sqlite_database,
+    import_sqlite_database,
+    sqlite_database_path,
+    new_account,
+    pagination,
+    settings_page,
+)
 from app.models import Account, ModelInferenceHistory, ModelInferenceResult
 from app.security import encrypt_secret
 from app.services import (
@@ -154,4 +165,60 @@ def test_settings_page_shows_runtime_controls_and_counts():
     assert b"New provider defaults" in response.body
     assert b"Rows per table" in response.body
     assert b"Data maintenance" in response.body
+    assert b"Database transfer" in response.body
+    assert b"Export database" in response.body
+    assert b"Import database" in response.body
     assert b"Clear inference results" in response.body
+
+
+def test_sqlite_database_export_creates_consistent_copy(tmp_path):
+    source = tmp_path / "source.db"
+    exported = tmp_path / "exported.db"
+    with sqlite3.connect(source) as database:
+        database.execute("create table sample (value text)")
+        database.execute("insert into sample values ('stored')")
+
+    export_sqlite_database(source, exported)
+
+    with sqlite3.connect(exported) as database:
+        assert database.execute("pragma integrity_check").fetchone()[0] == "ok"
+        assert database.execute("select value from sample").fetchone()[0] == "stored"
+
+
+def test_sqlite_database_import_replaces_target_after_integrity_check(tmp_path):
+    uploaded = tmp_path / "uploaded.db"
+    target = tmp_path / "target.db"
+    with sqlite3.connect(uploaded) as database:
+        database.execute("create table sample (value text)")
+        database.execute("insert into sample values ('imported')")
+    with sqlite3.connect(target) as database:
+        database.execute("create table sample (value text)")
+        database.execute("insert into sample values ('old')")
+
+    import_sqlite_database(uploaded, target)
+
+    with sqlite3.connect(target) as database:
+        assert database.execute("pragma integrity_check").fetchone()[0] == "ok"
+        assert database.execute("select value from sample").fetchone()[0] == "imported"
+
+
+def test_sqlite_database_import_rejects_invalid_upload(tmp_path):
+    uploaded = tmp_path / "uploaded.db"
+    target = tmp_path / "target.db"
+    uploaded.write_bytes(b"not sqlite")
+
+    try:
+        import_sqlite_database(uploaded, target)
+    except HTTPException as exc:
+        assert exc.status_code == 400
+    else:
+        raise AssertionError("invalid upload should be rejected")
+    assert not target.exists()
+
+
+def test_sqlite_database_path_resolves_relative_urls_from_repository_root():
+    root = Path(__file__).resolve().parent.parent
+
+    assert sqlite_database_path("sqlite:///./data/apichecker.db") == (
+        root / "data/apichecker.db"
+    )

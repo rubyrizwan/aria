@@ -497,6 +497,7 @@ select:focus, input:focus, textarea:focus { border-color: var(--brand); box-shad
 .maintenance-count small { margin-top: 3px; color: var(--muted); font-size: 10px; }
 .maintenance-grid p { margin-bottom: 18px; max-width: 440px; }
 .maintenance-grid form { margin-top: auto; }
+.maintenance-grid input[type="file"] { width: min(100%, 320px); margin: 0 0 12px; padding: 9px; border: 1px solid var(--border); border-radius: 6px; background: var(--surface-alt); color: var(--text); font-size: 12px; }
 .about-header { padding: 24px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); }
 .about-product { display: flex; align-items: flex-start; gap: 18px; }
 .about-product-mark { width: 52px; height: 52px; display: grid; place-items: center; border-radius: 8px; color: #fff; background: var(--brand); }

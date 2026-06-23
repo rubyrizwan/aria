@@ -3,7 +3,10 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import hmac
+import shutil
+import sqlite3
 import subprocess
+import tempfile
 from contextlib import asynccontextmanager
 from datetime import datetime, timedelta, timezone
 from math import ceil
@@ -13,9 +16,10 @@ from urllib.parse import urlencode
 from uuid import uuid4
 
 from fastapi import Depends, FastAPI, HTTPException, Request
-from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
+from starlette.background import BackgroundTask
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
@@ -109,6 +113,44 @@ TABLE_PAGE_SIZE_OPTIONS = {15, 30, 50, 100}
 AUTO_INFERENCE_INTERVAL_OPTIONS = {24, 72, 168}
 APP_VERSION = __version__
 RELEASE_DATE = datetime.strptime(__release_date__, "%Y-%m-%d").strftime("%d %B %Y")
+
+
+def sqlite_database_path(database_url: str = settings.database_url) -> Path:
+    prefix = "sqlite:///"
+    if not database_url.startswith(prefix):
+        raise HTTPException(
+            400, "Database export and import currently support SQLite only."
+        )
+    raw_path = database_url.removeprefix(prefix)
+    if raw_path == ":memory:":
+        raise HTTPException(
+            400, "In-memory SQLite databases cannot be exported or imported."
+        )
+    path = Path(raw_path)
+    return path if path.is_absolute() else BASE_DIR.parent / path
+
+
+def export_sqlite_database(source: Path, destination: Path) -> None:
+    if not source.is_file():
+        raise HTTPException(404, "Database file was not found.")
+    with sqlite3.connect(source) as current, sqlite3.connect(destination) as exported:
+        current.backup(exported)
+
+
+def import_sqlite_database(uploaded: Path, target: Path) -> None:
+    if not uploaded.is_file():
+        raise HTTPException(400, "Uploaded database file was not received.")
+    try:
+        with sqlite3.connect(uploaded) as candidate:
+            integrity = candidate.execute("PRAGMA integrity_check").fetchone()
+            if not integrity or integrity[0] != "ok":
+                raise HTTPException(400, "Uploaded database failed SQLite integrity check.")
+    except sqlite3.DatabaseError as exc:
+        raise HTTPException(400, "Uploaded file is not a valid SQLite database.") from exc
+    target.parent.mkdir(parents=True, exist_ok=True)
+    with sqlite3.connect(uploaded) as candidate, sqlite3.connect(target) as current:
+        candidate.backup(current)
+
 RELEASE_HISTORY = (
     {
         "version": "1.0.4",
@@ -1056,6 +1098,11 @@ def settings_page(
             f"Inference results cleared. "
             f"{maintenance.removeprefix('inference-cleared-')} rows were deleted."
         )
+    elif maintenance == "database-imported":
+        maintenance_message = (
+            "Database import completed. "
+            "Restart the application if existing sessions show stale data."
+        )
     return templates.TemplateResponse(
         request,
         "settings.html",
@@ -1121,6 +1168,52 @@ async def update_settings(request: Request, db: DbSession):
         )
     save_app_preferences(db, values)
     return RedirectResponse("/settings?saved=true", status_code=303)
+
+
+@app.get("/settings/database/export")
+def export_database():
+    database = sqlite_database_path()
+    export_name = (
+        f"aria-database-{datetime.now(timezone.utc).strftime('%Y%m%d-%H%M%S')}.db"
+    )
+    temporary = tempfile.NamedTemporaryFile(
+        prefix="aria-export-", suffix=".db", delete=False
+    )
+    temporary_path = Path(temporary.name)
+    temporary.close()
+    try:
+        export_sqlite_database(database, temporary_path)
+    except Exception:
+        temporary_path.unlink(missing_ok=True)
+        raise
+    return FileResponse(
+        temporary_path,
+        media_type="application/vnd.sqlite3",
+        filename=export_name,
+        background=BackgroundTask(temporary_path.unlink, missing_ok=True),
+    )
+
+
+@app.post("/settings/database/import")
+async def import_database(request: Request):
+    form = await request.form()
+    upload = form.get("database_file")
+    if not upload or not getattr(upload, "filename", ""):
+        raise HTTPException(400, "Choose a SQLite database file to import.")
+    current_database = sqlite_database_path()
+    with tempfile.NamedTemporaryFile(
+        prefix="aria-import-", suffix=".db", delete=False
+    ) as temporary:
+        temporary_path = Path(temporary.name)
+        await upload.seek(0)
+        shutil.copyfileobj(upload.file, temporary)
+    try:
+        import_sqlite_database(temporary_path, current_database)
+        engine.dispose()
+    finally:
+        temporary_path.unlink(missing_ok=True)
+        await upload.close()
+    return RedirectResponse("/settings?maintenance=database-imported", status_code=303)
 
 
 @app.post("/settings/prune-history")
