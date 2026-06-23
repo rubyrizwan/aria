@@ -2,6 +2,13 @@
 
 All notable changes to ARIA are documented here.
 
+## [1.0.4] - 2026-06-23
+
+### Fixed
+
+- Updated release preparation tooling so the README stable-version line is automatically kept in sync with the application version.
+- Added regression coverage for the README stable-version line.
+
 ## [1.0.3] - 2026-06-21
 
 ### Added

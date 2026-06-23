@@ -7,7 +7,7 @@ memeriksa API key, dan mengambil daftar model secara berkala. Aplikasi berjalan 
 satu proses FastAPI, menyimpan data di SQLite, dan mengenkripsi API key sebelum
 menyimpannya.
 
-Versi stabil saat ini: **1.0.3**. Fitur token usage belum termasuk dalam versi ini.
+Versi stabil saat ini: **1.0.4**. Fitur token usage belum termasuk dalam versi ini.
 
 ## Fitur
 
@@ -328,6 +328,7 @@ Commit dan push tetap dilakukan secara eksplisit.
 | Version | Date | Ringkasan |
 | --- | --- | --- |
 <!-- version-history -->
+| `1.0.4` | 2026-06-23 | Release tooling menjaga versi stabil README tetap sinkron otomatis |
 | `1.0.3` | 2026-06-21 | Dokumentasi referensi deployment Docker di `docs/DOCKER.md` |
 | `1.0.2` | 2026-06-20 | See CHANGELOG.md; update this summary before committing |
 | `1.0.1` | 2026-06-20 | Perbaikan deteksi proses launcher setelah direktori repository dipindahkan |

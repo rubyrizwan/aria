@@ -111,6 +111,11 @@ APP_VERSION = __version__
 RELEASE_DATE = datetime.strptime(__release_date__, "%Y-%m-%d").strftime("%d %B %Y")
 RELEASE_HISTORY = (
     {
+        "version": "1.0.4",
+        "date": "23 June 2026",
+        "summary": "Release tooling now keeps the README stable version in sync automatically.",
+    },
+    {
         "version": "1.0.3",
         "date": "21 June 2026",
         "summary": "Dedicated Docker deployment reference documentation.",
