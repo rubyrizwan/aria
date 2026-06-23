@@ -498,6 +498,29 @@ select:focus, input:focus, textarea:focus { border-color: var(--brand); box-shad
 .maintenance-grid p { margin-bottom: 18px; max-width: 440px; }
 .maintenance-grid form { margin-top: auto; }
 .maintenance-grid input[type="file"] { width: min(100%, 320px); margin: 0 0 12px; padding: 9px; border: 1px solid var(--border); border-radius: 6px; background: var(--surface-alt); color: var(--text); font-size: 12px; }
+
+.database-transfer-grid { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); }
+.database-action-card { min-height: 330px; padding: 22px; display: flex; flex-direction: column; border-left: 1px solid #e9edef; }
+.database-action-card:first-child { border-left: 0; }
+.database-action-heading { margin-bottom: 18px; display: flex; align-items: flex-start; gap: 12px; }
+.database-action-heading h3 { margin: 1px 0 5px; font-size: 15px; }
+.database-action-heading p { margin: 0; color: var(--muted); font-size: 11px; line-height: 1.5; }
+.database-action-icon { width: 36px; height: 36px; display: grid; place-items: center; border-radius: 7px; color: var(--info); background: var(--info-bg); }
+.database-action-icon.danger { color: var(--bad); background: var(--bad-bg); }
+.database-detail-list { margin: 0 0 22px; display: grid; border: 1px solid #e9edef; border-radius: 7px; overflow: hidden; }
+.database-detail-list div { min-height: 42px; padding: 10px 12px; display: grid; grid-template-columns: 96px minmax(0,1fr); gap: 10px; align-items: center; border-top: 1px solid #e9edef; background: var(--surface-alt); }
+.database-detail-list div:first-child { border-top: 0; }
+.database-detail-list dt { color: var(--muted); font-size: 10px; font-weight: 700; }
+.database-detail-list dd { margin: 0; color: #40515d; font-size: 11px; overflow-wrap: anywhere; }
+.database-action-card > form { margin-top: auto; }
+.database-import-form { display: grid; gap: 14px; }
+.database-file-picker { min-height: 150px; padding: 18px; display: grid; place-items: center; text-align: center; border: 1px dashed #b9c7cf; border-radius: 8px; background: var(--surface-alt); cursor: pointer; }
+.database-file-picker:hover { border-color: var(--brand); background: #f2f8f5; }
+.database-file-picker > span { width: 42px; height: 42px; margin-bottom: 10px; display: grid; place-items: center; border-radius: 7px; color: var(--brand); background: #e7f4ef; }
+.database-file-picker strong, .database-file-picker small { display: block; }
+.database-file-picker strong { margin-bottom: 4px; font-size: 12px; }
+.database-file-picker small { color: var(--muted); font-size: 10px; }
+.database-file-picker input { width: min(100%, 360px); margin-top: 14px; padding: 9px; border: 1px solid var(--border); border-radius: 6px; background: #fff; color: var(--text); font-size: 12px; }
 .about-header { padding: 24px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); }
 .about-product { display: flex; align-items: flex-start; gap: 18px; }
 .about-product-mark { width: 52px; height: 52px; display: grid; place-items: center; border-radius: 8px; color: #fff; background: var(--brand); }
@@ -625,9 +648,9 @@ select:focus, input:focus, textarea:focus { border-color: var(--brand); box-shad
   .settings-row { align-items: flex-start; flex-direction: column; gap: 12px; }
   .settings-row > select, .settings-input-suffix { width: 100%; }
   .settings-toggle strong, .settings-toggle small { white-space: normal; }
-  .maintenance-grid { grid-template-columns: 1fr; }
-  .maintenance-grid article { border-left: 0; border-top: 1px solid #e9edef; }
-  .maintenance-grid article:first-child { border-top: 0; }
+  .maintenance-grid, .database-transfer-grid { grid-template-columns: 1fr; }
+  .maintenance-grid article, .database-action-card { border-left: 0; border-top: 1px solid #e9edef; }
+  .maintenance-grid article:first-child, .database-action-card:first-child { border-top: 0; }
   .model-catalog-filters { grid-template-columns: 1fr; }
   .model-catalog-filters .search, .model-filter-actions { grid-column: auto; }
   .model-filter-actions { justify-content: stretch; }

@@ -1170,7 +1170,27 @@ async def update_settings(request: Request, db: DbSession):
     return RedirectResponse("/settings?saved=true", status_code=303)
 
 
+@app.get("/database", response_class=HTMLResponse)
+def database_page(request: Request, maintenance: str = ""):
+    maintenance_message = ""
+    if maintenance == "database-imported":
+        maintenance_message = (
+            "Database import completed. "
+            "Restart the application if existing sessions show stale data."
+        )
+    return templates.TemplateResponse(
+        request,
+        "database.html",
+        template_context(request, maintenance_message=maintenance_message),
+    )
+
+
 @app.get("/settings/database/export")
+def legacy_export_database():
+    return RedirectResponse("/database", status_code=303)
+
+
+@app.get("/database/export")
 def export_database():
     database = sqlite_database_path()
     export_name = (
@@ -1194,6 +1214,7 @@ def export_database():
     )
 
 
+@app.post("/database/import")
 @app.post("/settings/database/import")
 async def import_database(request: Request):
     form = await request.form()
@@ -1213,7 +1234,7 @@ async def import_database(request: Request):
     finally:
         temporary_path.unlink(missing_ok=True)
         await upload.close()
-    return RedirectResponse("/settings?maintenance=database-imported", status_code=303)
+    return RedirectResponse("/database?maintenance=database-imported", status_code=303)
 
 
 @app.post("/settings/prune-history")

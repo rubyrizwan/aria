@@ -649,7 +649,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   document.querySelectorAll("form").forEach((form) => {
     form.addEventListener("submit", (event) => {
-      if (event.defaultPrevented) return;
+      if (event.defaultPrevented || form.hasAttribute("data-download-form")) return;
       const button = event.submitter || form.querySelector('button[type="submit"], button:not([type])');
       if (!button || button.disabled) return;
 

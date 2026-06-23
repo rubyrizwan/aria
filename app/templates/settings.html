@@ -122,28 +122,6 @@
 
 <section class="settings-panel maintenance-panel">
   <div class="settings-panel-heading">
-    <span class="settings-icon info"><i data-lucide="database-backup"></i></span>
-    <div><h2>Database transfer</h2><p>Export a consistent SQLite copy or import a previously exported database.</p></div>
-  </div>
-  <div class="maintenance-grid">
-    <article>
-      <div class="maintenance-count"><i data-lucide="download"></i><span><strong>Export</strong><small>SQLite database</small></span></div>
-      <p>Download a consistent copy of the current ARIA database for migration or offline backup.</p>
-      <a class="button secondary" href="/settings/database/export"><i data-lucide="download"></i>Export database</a>
-    </article>
-    <article>
-      <div class="maintenance-count"><i data-lucide="upload"></i><span><strong>Import</strong><small>replace database</small></span></div>
-      <p>Upload a SQLite database export. The uploaded file replaces the current database after an integrity check.</p>
-      <form method="post" action="/settings/database/import" enctype="multipart/form-data" data-confirm-title="Import database?" data-confirm-message="The uploaded database will replace the current ARIA database. Export a backup first if you need to keep the current data." data-confirm-label="Import database">
-        <input type="file" name="database_file" accept=".db,.sqlite,.sqlite3,application/vnd.sqlite3,application/x-sqlite3" required>
-        <button class="button danger" type="submit" data-loading-label="Importing..."><i data-lucide="upload"></i>Import database</button>
-      </form>
-    </article>
-  </div>
-</section>
-
-<section class="settings-panel maintenance-panel">
-  <div class="settings-panel-heading">
     <span class="settings-icon bad"><i data-lucide="database"></i></span>
     <div><h2>Data maintenance</h2><p>Review and clean stored monitoring data.</p></div>
   </div>

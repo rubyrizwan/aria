@@ -11,7 +11,10 @@ from app.checker import InferenceResult
 from app.database import Base
 from app.main import (
     app,
+    database_page,
+    export_database,
     export_sqlite_database,
+    legacy_export_database,
     import_sqlite_database,
     sqlite_database_path,
     new_account,
@@ -165,11 +168,21 @@ def test_settings_page_shows_runtime_controls_and_counts():
     assert b"New provider defaults" in response.body
     assert b"Rows per table" in response.body
     assert b"Data maintenance" in response.body
+    assert b"Clear inference results" in response.body
+    assert b"Database transfer" not in response.body
+
+
+
+def test_database_page_shows_transfer_controls():
+    response = database_page(request_for("/database"))
+
     assert b"Database transfer" in response.body
     assert b"Export database" in response.body
     assert b"Import database" in response.body
-    assert b"Clear inference results" in response.body
-
+    assert b"data-download-form" in response.body
+    assert b"database-download-frame" in response.body
+    assert b"/database/export" in response.body
+    assert b"/database/import" in response.body
 
 def test_sqlite_database_export_creates_consistent_copy(tmp_path):
     source = tmp_path / "source.db"
@@ -222,3 +235,31 @@ def test_sqlite_database_path_resolves_relative_urls_from_repository_root():
     assert sqlite_database_path("sqlite:///./data/apichecker.db") == (
         root / "data/apichecker.db"
     )
+
+
+
+def test_legacy_settings_export_url_redirects_to_database_page():
+    response = legacy_export_database()
+
+    assert response.status_code == 303
+    assert response.headers["location"] == "/database"
+
+def test_database_export_route_returns_attachment(tmp_path, monkeypatch):
+    source = tmp_path / "source.db"
+    with sqlite3.connect(source) as database:
+        database.execute("create table sample (value text)")
+        database.execute("insert into sample values ('stored')")
+    monkeypatch.setattr("app.main.sqlite_database_path", lambda: source)
+
+    response = export_database()
+
+    assert response.status_code == 200
+    assert response.headers["content-type"].startswith("application/vnd.sqlite3")
+    assert "attachment" in response.headers["content-disposition"]
+    exported = Path(response.path)
+    try:
+        with sqlite3.connect(exported) as database:
+            assert database.execute("pragma integrity_check").fetchone()[0] == "ok"
+            assert database.execute("select value from sample").fetchone()[0] == "stored"
+    finally:
+        exported.unlink(missing_ok=True)

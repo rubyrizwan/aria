@@ -29,6 +29,9 @@
       <a href="/settings" class="{{ 'active' if path == '/settings' else '' }}">
         <i data-lucide="settings"></i><span>Settings</span>
       </a>
+      <a href="/database" class="{{ 'active' if path.startswith('/database') else '' }}">
+        <i data-lucide="database-backup"></i><span>Database</span>
+      </a>
       <a href="/about" class="{{ 'active' if path == '/about' else '' }}">
         <i data-lucide="circle-help"></i><span>About</span>
       </a>

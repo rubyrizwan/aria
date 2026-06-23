@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% block title %}Database · ARIA{% endblock %}
+{% block content %}
+<header class="page-header compact">
+  <div><p class="eyebrow">Data operations</p><h1>Database</h1><p class="subtle">Export a consistent SQLite copy or import a previously exported ARIA database.</p></div>
+</header>
+{% if maintenance_message %}
+<div class="alert success"><i data-lucide="database-check"></i><div><strong>Database updated</strong><p>{{ maintenance_message }}</p></div></div>
+{% endif %}
+
+<section class="settings-panel database-transfer-panel">
+  <div class="settings-panel-heading">
+    <span class="settings-icon info"><i data-lucide="database-backup"></i></span>
+    <div><h2>Database transfer</h2><p>Download a SQLite backup or replace the active database with a verified upload.</p></div>
+  </div>
+  <div class="database-transfer-grid">
+    <article class="database-action-card">
+      <div class="database-action-heading">
+        <span class="database-action-icon"><i data-lucide="download"></i></span>
+        <div><h3>Export database</h3><p>Creates a consistent online copy using SQLite backup APIs.</p></div>
+      </div>
+      <dl class="database-detail-list">
+        <div><dt>Format</dt><dd>SQLite `.db`</dd></div>
+        <div><dt>Filename</dt><dd>`aria-database-YYYYMMDD-HHMMSS.db`</dd></div>
+        <div><dt>Current data</dt><dd>Providers, encrypted keys, models, checks, and settings</dd></div>
+      </dl>
+      <form method="get" action="/database/export" target="database-download-frame" data-download-form>
+        <button class="button secondary" type="submit"><i data-lucide="download"></i>Export database</button>
+      </form>
+    </article>
+
+    <article class="database-action-card danger-zone">
+      <div class="database-action-heading">
+        <span class="database-action-icon danger"><i data-lucide="upload"></i></span>
+        <div><h3>Import database</h3><p>Validates the uploaded SQLite file, then replaces the active database.</p></div>
+      </div>
+      <form class="database-import-form" method="post" action="/database/import" enctype="multipart/form-data" data-confirm-title="Import database?" data-confirm-message="The uploaded database will replace the current ARIA database. Export a backup first if you need to keep the current data." data-confirm-label="Import database">
+        <label class="database-file-picker" for="database-file">
+          <span><i data-lucide="file-database"></i></span>
+          <strong>SQLite database file</strong>
+          <small>Accepted: `.db`, `.sqlite`, `.sqlite3`</small>
+          <input id="database-file" type="file" name="database_file" accept=".db,.sqlite,.sqlite3,application/vnd.sqlite3,application/x-sqlite3" required>
+        </label>
+        <button class="button danger" type="submit" data-loading-label="Importing..."><i data-lucide="upload"></i>Import database</button>
+      </form>
+    </article>
+  </div>
+</section>
+<iframe name="database-download-frame" title="Database download" hidden></iframe>
+{% endblock %}
