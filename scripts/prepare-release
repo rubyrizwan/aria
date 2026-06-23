@@ -72,6 +72,11 @@ def main() -> None:
         f'version = "{version}"',
         PYPROJECT,
     )
+    replace(
+        r'^Versi stabil saat ini: \*\*[^*]+\*\*\.',
+        f'Versi stabil saat ini: **{version}**.',
+        README,
+    )
 
     changelog = CHANGELOG.read_text()
     marker = "All notable changes to ARIA are documented here.\n"

@@ -7,7 +7,7 @@ memeriksa API key, dan mengambil daftar model secara berkala. Aplikasi berjalan 
 satu proses FastAPI, menyimpan data di SQLite, dan mengenkripsi API key sebelum
 menyimpannya.
 
-Versi stabil saat ini: **1.0.1**. Fitur token usage belum termasuk dalam versi ini.
+Versi stabil saat ini: **1.0.3**. Fitur token usage belum termasuk dalam versi ini.
 
 ## Fitur
 

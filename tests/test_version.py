@@ -12,4 +12,6 @@ def test_project_and_changelog_versions_match():
     assert project_version
     assert project_version.group(1) == __version__
     assert f"## [{__version__}]" in (root / "CHANGELOG.md").read_text()
-    assert f"| `{__version__}` |" in (root / "README.md").read_text()
+    readme = (root / "README.md").read_text()
+    assert f"Versi stabil saat ini: **{__version__}**." in readme
+    assert f"| `{__version__}` |" in readme
