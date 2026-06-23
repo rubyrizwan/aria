@@ -328,6 +328,7 @@ Commit dan push tetap dilakukan secara eksplisit.
 | Version | Date | Ringkasan |
 | --- | --- | --- |
 <!-- version-history -->
+| `1.0.3` | 2026-06-21 | Dokumentasi referensi deployment Docker di `docs/DOCKER.md` |
 | `1.0.2` | 2026-06-20 | See CHANGELOG.md; update this summary before committing |
 | `1.0.1` | 2026-06-20 | Perbaikan deteksi proses launcher setelah direktori repository dipindahkan |
 | `1.0.0` | 2026-06-20 | Rilis stabil pertama ARIA untuk monitoring provider, model discovery, dan inference access |

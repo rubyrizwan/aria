@@ -2,6 +2,13 @@
 
 All notable changes to ARIA are documented here.
 
+## [1.0.3] - 2026-06-21
+
+### Added
+
+- Dedicated Docker deployment reference documentation at `docs/DOCKER.md` covering image architecture, compose configuration, environment variables, manual build, operations, security, and troubleshooting.
+- Cross-reference to `docs/DOCKER.md` from the Docker section in README.
+
 ## [1.0.2] - 2026-06-20
 
 ### Changed
